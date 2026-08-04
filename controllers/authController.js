@@ -45,6 +45,16 @@ exports.login = async (req, res) => {
         const { username, password } = req.body;
 
         const user = await User.findOne({ username });
+        
+        // Initialize security fields for old users
+if (user && user.failedAttempts === undefined) {
+
+    user.failedAttempts = 0;
+    user.lockUntil = null;
+
+    await user.save();
+
+}
 
         // User not found
         if (!user) {
