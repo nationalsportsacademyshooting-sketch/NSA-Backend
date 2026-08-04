@@ -30,8 +30,8 @@ const userSchema = new mongoose.Schema({
 
     age: {
         type: Number
-    }
-    
+    },
+
     failedAttempts: {
     type: Number,
     default: 0
