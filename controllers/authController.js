@@ -71,33 +71,37 @@ exports.login = async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.password);
 
-        // Wrong password
-        if (!isMatch) {
+       // Wrong password
+if (!isMatch) {
 
-            user.failedAttempts += 1;
+    user.failedAttempts += 1;
 
-            if (user.failedAttempts > 5) {
+    if (user.failedAttempts > 5) {
 
-                let lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
+        let lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
 
-                // Maximum 5 minutes
-                if (lockSeconds > 300) {
-                    lockSeconds = 300;
-                }
-
-                user.lockUntil = new Date(
-                    Date.now() + lockSeconds * 1000
-                );
-
-            }
-
-            await user.save();
-
-            return res.status(400).json({
-                message: "Invalid username or password"
-            });
-
+        if (lockSeconds > 300) {
+            lockSeconds = 300;
         }
+
+        user.lockUntil = new Date(Date.now() + lockSeconds * 1000);
+
+        await user.save();
+
+        return res.status(429).json({
+            message: `Too many failed attempts. Please wait ${lockSeconds} seconds.`,
+            secondsLeft: lockSeconds
+        });
+
+    }
+
+    await user.save();
+
+    return res.status(400).json({
+        message: "Invalid username or password"
+    });
+
+}
 
         // Successful login
         user.failedAttempts = 0;
