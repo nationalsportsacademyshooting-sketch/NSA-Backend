@@ -31,6 +31,16 @@ const userSchema = new mongoose.Schema({
     age: {
         type: Number
     }
+    
+    failedAttempts: {
+    type: Number,
+    default: 0
+},
+
+lockUntil: {
+    type: Date,
+    default: null
+},
 
 }, {
     timestamps: true

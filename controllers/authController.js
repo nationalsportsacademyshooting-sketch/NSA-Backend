@@ -46,19 +46,64 @@ exports.login = async (req, res) => {
 
         const user = await User.findOne({ username });
 
-if (!user) {
-    return res.status(400).json({
-        message: "Invalid username or password"
-    });
-}
+        // User not found
+        if (!user) {
+
+            return res.status(400).json({
+                message: "Invalid username or password"
+            });
+
+        }
+
+        // Check if account is locked
+        if (user.lockUntil && user.lockUntil > new Date()) {
+
+            const secondsLeft = Math.ceil(
+                (user.lockUntil - new Date()) / 1000
+            );
+
+            return res.status(429).json({
+                message: `Too many failed attempts. Please wait ${secondsLeft} seconds.`,
+                secondsLeft
+            });
+
+        }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
-       if (!isMatch) {
-    return res.status(400).json({
-        message: "Invalid username or password"
-    });
-}
+        // Wrong password
+        if (!isMatch) {
+
+            user.failedAttempts += 1;
+
+            if (user.failedAttempts > 5) {
+
+                let lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
+
+                // Maximum 5 minutes
+                if (lockSeconds > 300) {
+                    lockSeconds = 300;
+                }
+
+                user.lockUntil = new Date(
+                    Date.now() + lockSeconds * 1000
+                );
+
+            }
+
+            await user.save();
+
+            return res.status(400).json({
+                message: "Invalid username or password"
+            });
+
+        }
+
+        // Successful login
+        user.failedAttempts = 0;
+        user.lockUntil = null;
+
+        await user.save();
 
         const token = jwt.sign(
             {
@@ -72,20 +117,28 @@ if (!user) {
         );
 
         res.json({
-    message: "Login Successful",
-    token,
-    user: {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-        name: user.name
-    }
-});
+
+            message: "Login Successful",
+
+            token,
+
+            user: {
+
+                id: user._id,
+                username: user.username,
+                role: user.role,
+                name: user.name
+
+            }
+
+        });
 
     } catch (err) {
 
         res.status(500).json({
+
             message: err.message
+
         });
 
     }
