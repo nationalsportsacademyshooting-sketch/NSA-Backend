@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 
 dotenv.config();
 
@@ -10,9 +11,26 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+const loginLimiter = rateLimit({
+
+    windowMs: 10 * 60 * 1000, // 10 minutes
+
+    max: 10,
+
+    standardHeaders: true,
+
+    legacyHeaders: false,
+
+    message: {
+        message: "Too many login attempts. Please try again after 10 minutes."
+    }
+
+});
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
+app.use("/api/auth/login", loginLimiter);
+
 app.use("/api/auth", authRoutes);
 
 // MongoDB Connection
