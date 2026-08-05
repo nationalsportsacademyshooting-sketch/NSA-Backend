@@ -164,42 +164,40 @@ if (!isMatch) {
 };
 // Change Admin Username & Password
 exports.changeAdmin = async (req, res) => {
+
     try {
 
         const {
-            currentUsername,
-            currentPassword,
             newUsername,
             newPassword
         } = req.body;
 
-        const user = await User.findOne({
-            username: currentUsername,
-            role: "admin"
-        });
+
+        // Get admin from JWT token
+        const user = await User.findById(req.user.id);
+
 
         if (!user) {
+
             return res.status(404).json({
                 message: "Admin not found"
             });
+
         }
 
-        const match = await bcrypt.compare(currentPassword, user.password);
-
-        if (!match) {
-            return res.status(400).json({
-                message: "Current password is incorrect"
-            });
-        }
 
         user.username = newUsername;
+
         user.password = await bcrypt.hash(newPassword, 10);
 
+
         await user.save();
+
 
         res.json({
             message: "Admin account updated successfully"
         });
+
 
     } catch (err) {
 
@@ -208,4 +206,5 @@ exports.changeAdmin = async (req, res) => {
         });
 
     }
+
 };
