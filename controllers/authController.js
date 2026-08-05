@@ -81,30 +81,29 @@ if (user && user.failedAttempts === undefined) {
 
         const isMatch = await bcrypt.compare(password, user.password);
 
-       // Wrong password
+     // Wrong password
 if (!isMatch) {
 
     user.failedAttempts = (user.failedAttempts || 0) + 1;
 
-console.log("Before save:", user.failedAttempts);
+    console.log("Failed Attempts:", user.failedAttempts);
 
-await user.save();
-
-const updatedUser = await User.findById(user._id);
-
-console.log("After save:", updatedUser.failedAttempts);
+    let lockSeconds = 0;
 
     if (user.failedAttempts > 5) {
 
-        let lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
+        lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
 
         if (lockSeconds > 300) {
             lockSeconds = 300;
         }
 
         user.lockUntil = new Date(Date.now() + lockSeconds * 1000);
+    }
 
-        await user.save();
+    await user.save();
+
+    if (user.failedAttempts > 5) {
 
         return res.status(429).json({
             message: `Too many failed attempts. Please wait ${lockSeconds} seconds.`,
@@ -113,14 +112,11 @@ console.log("After save:", updatedUser.failedAttempts);
 
     }
 
-    await user.save();
-
     return res.status(400).json({
         message: "Invalid username or password"
     });
 
 }
-
         // Successful login
         user.failedAttempts = 0;
         user.lockUntil = null;
