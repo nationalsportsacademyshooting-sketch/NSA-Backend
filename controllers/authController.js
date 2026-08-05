@@ -84,7 +84,15 @@ if (user && user.failedAttempts === undefined) {
        // Wrong password
 if (!isMatch) {
 
-    user.failedAttempts += 1;
+    user.failedAttempts = (user.failedAttempts || 0) + 1;
+
+console.log("Before save:", user.failedAttempts);
+
+await user.save();
+
+const updatedUser = await User.findById(user._id);
+
+console.log("After save:", updatedUser.failedAttempts);
 
     if (user.failedAttempts > 5) {
 
