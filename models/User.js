@@ -26,10 +26,10 @@ const userSchema = new mongoose.Schema({
     },
 
     category: {
-        type: String,
-        enum: ["NR", "ISSF"],
-        required: true
-    },
+    type: String,
+    enum: ["NR", "ISSF"],
+    default: "NR"
+},
 
     age: {
         type: Number
