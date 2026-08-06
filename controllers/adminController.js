@@ -192,3 +192,47 @@ exports.deleteShooter = async (req, res) => {
     }
 
 };
+// ===============================
+// Get All Shooters
+// ===============================
+
+exports.getAllShooters = async (req, res) => {
+    try {
+
+        const shooters = await User.find({ role: "shooter" })
+            .select("-password")
+            .sort({ createdAt: -1 });
+
+        res.json(shooters);
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+            message: "Server Error"
+        });
+
+    }
+};
+exports.deleteShooter = async (req, res) => {
+
+    try{
+
+        await User.findByIdAndDelete(req.params.id);
+
+        res.json({
+            message:"Shooter deleted"
+        });
+
+    }
+
+    catch(err){
+
+        res.status(500).json({
+            message:"Server Error"
+        });
+
+    }
+
+};

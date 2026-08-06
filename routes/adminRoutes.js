@@ -21,3 +21,15 @@ router.put("/update-shooter/:id", auth, admin, adminController.updateShooter);
 router.delete("/delete-shooter/:id", auth, admin, adminController.deleteShooter);
 
 module.exports = router;
+router.get(
+    "/shooters",
+    authMiddleware,
+    adminMiddleware,
+    adminController.getAllShooters
+);
+router.delete(
+    "/shooters/:id",
+    authMiddleware,
+    adminMiddleware,
+    adminController.deleteShooter
+);
