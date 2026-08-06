@@ -79,6 +79,16 @@ if (user && user.failedAttempts === undefined) {
 
         }
 
+        // Lock has expired, reset security fields
+if (user.lockUntil && user.lockUntil <= new Date()) {
+
+    user.failedAttempts = 0;
+    user.lockUntil = null;
+
+    await user.save();
+
+}
+
         const isMatch = await bcrypt.compare(password, user.password);
 
      // Wrong password
@@ -90,7 +100,7 @@ if (!isMatch) {
 
     let lockSeconds = 0;
 
-    if (user.failedAttempts > 5) {
+    if (user.failedAttempts > 6) {
 
         lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
 
