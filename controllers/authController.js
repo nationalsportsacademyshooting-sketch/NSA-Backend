@@ -100,7 +100,7 @@ if (!isMatch) {
 
     let lockSeconds = 0;
 
-    if (user.failedAttempts > 6) {
+    if (user.failedAttempts > 5) {
 
         lockSeconds = 10 + ((user.failedAttempts - 6) * 5);
 
