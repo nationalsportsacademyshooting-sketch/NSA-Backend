@@ -19,32 +19,62 @@ const userSchema = new mongoose.Schema({
         default: "shooter"
     },
 
+    // Personal Details
     name: {
-        type: String
+        type: String,
+        required: true
     },
 
     category: {
         type: String,
-        enum: ["NR", "ISSF"]
+        enum: ["NR", "ISSF"],
+        required: true
     },
 
     age: {
         type: Number
     },
 
-    failedAttempts: {
-    type: Number,
-    default: 0
-},
+    mobile: {
+        type: String,
+        default: ""
+    },
 
-lockUntil: {
-    type: Date,
-    default: null
-},
+    gender: {
+        type: String,
+        enum: ["Male", "Female", "Other"],
+        default: "Male"
+    },
+
+    dob: {
+        type: Date
+    },
+
+    profilePhoto: {
+        type: String,
+        default: ""
+    },
+
+    // Permanent Training Time
+    assignedTimeSlot: {
+        type: String,
+        default: ""
+    },
+
+    // Login Security
+    failedAttempts: {
+        type: Number,
+        default: 0
+    },
+
+    lockUntil: {
+        type: Date,
+        default: null
+    }
 
 }, {
     timestamps: true
 });
 
-
 module.exports = mongoose.model("User", userSchema);
+

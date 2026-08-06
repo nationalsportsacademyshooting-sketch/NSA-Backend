@@ -218,3 +218,98 @@ exports.changeAdmin = async (req, res) => {
     }
 
 };
+exports.getShooters = async (req, res) => {
+
+    try {
+
+        const shooters = await User.find(
+            { role: "shooter" },
+            "-password"
+        ).sort({ name: 1 });
+
+        res.json(shooters);
+
+    } catch (err) {
+
+        res.status(500).json({
+            message: err.message
+        });
+
+    }
+
+};
+exports.updateShooter = async (req, res) => {
+
+    try {
+
+        const shooter = await User.findById(req.params.id);
+
+        if (!shooter) {
+
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+
+        }
+
+        shooter.name = req.body.name;
+        shooter.username = req.body.username;
+        shooter.category = req.body.category;
+        shooter.age = req.body.age;
+        shooter.gender = req.body.gender;
+        shooter.mobile = req.body.mobile;
+        shooter.assignedTimeSlot = req.body.assignedTimeSlot;
+
+        if (req.body.password && req.body.password !== "") {
+
+            shooter.password = await bcrypt.hash(
+                req.body.password,
+                10
+            );
+
+        }
+
+        await shooter.save();
+
+        res.json({
+            message: "Shooter updated successfully"
+        });
+
+    } catch (err) {
+
+        res.status(500).json({
+            message: err.message
+        });
+
+    }
+
+};
+exports.deleteShooter = async (req, res) => {
+
+    try {
+
+        const shooter = await User.findById(req.params.id);
+
+        if (!shooter) {
+
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+
+        }
+
+        await shooter.deleteOne();
+
+        res.json({
+            message: "Shooter deleted successfully"
+        });
+
+    } catch (err) {
+
+        res.status(500).json({
+            message: err.message
+        });
+
+    }
+
+};

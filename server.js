@@ -29,9 +29,12 @@ const loginLimiter = rateLimit({
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+
 app.use("/api/auth/login", loginLimiter);
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
