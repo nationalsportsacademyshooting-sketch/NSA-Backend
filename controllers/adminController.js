@@ -215,24 +215,3 @@ exports.getAllShooters = async (req, res) => {
 
     }
 };
-exports.deleteShooter = async (req, res) => {
-
-    try{
-
-        await User.findByIdAndDelete(req.params.id);
-
-        res.json({
-            message:"Shooter deleted"
-        });
-
-    }
-
-    catch(err){
-
-        res.status(500).json({
-            message:"Server Error"
-        });
-
-    }
-
-};
