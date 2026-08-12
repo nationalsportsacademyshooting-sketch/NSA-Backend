@@ -237,3 +237,36 @@ exports.updateShooter = async (req, res) => {
     }
 
 };
+// Delete Shooter
+exports.deleteShooter = async (req, res) => {
+
+    try {
+
+        const shooter = await User.findOneAndDelete({
+            _id: req.params.id,
+            role: "shooter"
+        });
+
+        if (!shooter) {
+
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+
+        }
+
+        res.json({
+            message: "Shooter profile deleted successfully"
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+            message: err.message
+        });
+
+    }
+
+};
