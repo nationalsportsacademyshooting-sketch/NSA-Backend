@@ -6,13 +6,10 @@ exports.createShooter = async (req, res) => {
 
     try {
 
-        // Only admin can create shooters
         if (req.user.role !== "admin") {
-
             return res.status(403).json({
                 message: "Access denied"
             });
-
         }
 
         const {
@@ -20,12 +17,17 @@ exports.createShooter = async (req, res) => {
             username,
             password,
             category,
+            event,
             age,
             mobile,
-            assignedTimeSlot
+            email,
+            dob,
+            gender,
+            className,
+            assignedTimeSlot,
+            profilePhoto
         } = req.body;
 
-        // Check username
         const existingUser = await User.findOne({ username });
 
         if (existingUser) {
@@ -36,7 +38,8 @@ exports.createShooter = async (req, res) => {
 
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword =
+            await bcrypt.hash(password, 10);
 
         const shooter = new User({
 
@@ -47,10 +50,21 @@ exports.createShooter = async (req, res) => {
             role: "shooter",
 
             category,
+            event,
+
             age,
             mobile,
+            email,
 
-            assignedTimeSlot
+            dob,
+
+            gender,
+
+            className,
+
+            assignedTimeSlot,
+
+            profilePhoto: profilePhoto || ""
 
         });
 
@@ -59,16 +73,17 @@ exports.createShooter = async (req, res) => {
         res.status(201).json({
 
             message: "Shooter created successfully",
+
             shooter
 
         });
 
     } catch (err) {
 
+        console.error(err);
+
         res.status(500).json({
-
             message: err.message
-
         });
 
     }
@@ -122,11 +137,13 @@ exports.getShooter = async (req, res) => {
     }
 
 };
+
 exports.updateShooter = async (req, res) => {
 
     try {
 
-        const shooter = await User.findById(req.params.id);
+        const shooter =
+            await User.findById(req.params.id);
 
         if (!shooter) {
 
@@ -136,82 +153,87 @@ exports.updateShooter = async (req, res) => {
 
         }
 
-        shooter.name = req.body.name;
-        shooter.username = req.body.username;
-        shooter.category = req.body.category;
-        shooter.age = req.body.age;
-        shooter.gender = req.body.gender;
-        shooter.mobile = req.body.mobile;
-        shooter.assignedTimeSlot = req.body.assignedTimeSlot;
+        // ==========================
+        // UPDATE BASIC DETAILS
+        // ==========================
+
+        shooter.name =
+            req.body.name;
+
+        shooter.username =
+            req.body.username;
+
+        shooter.category =
+            req.body.category;
+
+        shooter.event =
+            req.body.event;
+
+        shooter.age =
+            req.body.age;
+
+        shooter.mobile =
+            req.body.mobile;
+
+        shooter.email =
+            req.body.email;
+
+        shooter.dob =
+            req.body.dob || null;
+
+        shooter.gender =
+            req.body.gender;
+
+        shooter.className =
+            req.body.className;
+
+        shooter.assignedTimeSlot =
+            req.body.assignedTimeSlot;
+
+        // ==========================
+        // UPDATE PHOTO
+        // ==========================
+
+        if (req.body.profilePhoto) {
+
+            shooter.profilePhoto =
+                req.body.profilePhoto;
+
+        }
+
+        // ==========================
+        // UPDATE PASSWORD
+        // ==========================
 
         if (req.body.password) {
-            shooter.password = await bcrypt.hash(req.body.password, 10);
+
+            shooter.password =
+                await bcrypt.hash(
+                    req.body.password,
+                    10
+                );
+
         }
 
         await shooter.save();
 
         res.json({
-            message: "Shooter updated successfully"
+
+            message:
+                "Shooter updated successfully",
+
+            shooter
+
         });
-
-    } catch (err) {
-
-        res.status(500).json({
-            message: err.message
-        });
-
-    }
-
-};
-exports.deleteShooter = async (req, res) => {
-
-    try {
-
-        const shooter = await User.findById(req.params.id);
-
-        if (!shooter) {
-
-            return res.status(404).json({
-                message: "Shooter not found"
-            });
-
-        }
-
-        await shooter.deleteOne();
-
-        res.json({
-            message: "Shooter deleted successfully"
-        });
-
-    } catch (err) {
-
-        res.status(500).json({
-            message: err.message
-        });
-
-    }
-
-};
-// ===============================
-// Get All Shooters
-// ===============================
-
-exports.getAllShooters = async (req, res) => {
-    try {
-
-        const shooters = await User.find({ role: "shooter" })
-            .select("-password")
-            .sort({ createdAt: -1 });
-
-        res.json(shooters);
 
     } catch (err) {
 
         console.error(err);
 
         res.status(500).json({
-            message: "Server Error"
+            message: err.message
         });
 
     }
+
 };
