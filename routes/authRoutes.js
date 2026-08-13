@@ -11,6 +11,12 @@ router.post("/register", authController.register);
 router.post("/login", authController.login);
 
 router.get(
+    "/my-profile",
+    authMiddleware,
+    authController.getMyProfile
+);
+
+router.get(
     "/my-attendance",
     authMiddleware,
     authController.getMyAttendance

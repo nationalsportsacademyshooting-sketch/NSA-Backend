@@ -375,3 +375,36 @@ exports.getMyDailyScores = async (req, res) => {
         });
     }
 };
+// Get logged-in shooter's own profile
+exports.getMyProfile = async (req, res) => {
+
+    try {
+
+        if (req.user.role !== "shooter") {
+            return res.status(403).json({
+                message: "Shooter access required"
+            });
+        }
+
+        const shooter = await User.findById(
+            req.user.id,
+            "-password -failedAttempts -lockUntil"
+        );
+
+        if (!shooter) {
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+        }
+
+        res.json(shooter);
+
+    } catch (error) {
+
+        res.status(500).json({
+            message: error.message
+        });
+
+    }
+
+};
