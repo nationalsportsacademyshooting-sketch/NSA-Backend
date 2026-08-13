@@ -133,12 +133,66 @@ exports.cancelMyTomorrowBooking = async (req, res) => {
 exports.getTomorrowBookingsForAdmin = async (req, res) => {
     try {
         const date = getIndiaDate(1);
-        const bookings = await Booking.find({ date })
-            .populate("shooter", "name className category profilePhoto")
-            .sort({ timeSlot: 1, laneNumber: 1 });
 
-        res.json({ date, bookings });
+        const bookings = await Booking.find({ date })
+            .populate(
+                "shooter",
+                "name className category profilePhoto"
+            );
+
+        // Convert time slot start time into minutes
+        function getStartTime(timeSlot) {
+
+            const match = String(timeSlot).match(
+                /(\d{1,2}):(\d{2})\s*(AM|PM)/i
+            );
+
+            if (!match) return 9999;
+
+            let hour = Number(match[1]);
+            const minute = Number(match[2]);
+            const period = match[3].toUpperCase();
+
+            // 12 AM = 00:00
+            if (hour === 12) {
+                hour = 0;
+            }
+
+            // PM
+            if (period === "PM") {
+                hour += 12;
+            }
+
+            return (hour * 60) + minute;
+        }
+
+        // Sort:
+        // 1. Earliest time slot first
+        // 2. Lane number within the same time slot
+        bookings.sort((a, b) => {
+
+            const timeDifference =
+                getStartTime(a.timeSlot) -
+                getStartTime(b.timeSlot);
+
+            if (timeDifference !== 0) {
+                return timeDifference;
+            }
+
+            return Number(a.laneNumber) -
+                   Number(b.laneNumber);
+        });
+
+        res.json({
+            date,
+            bookings
+        });
+
     } catch (error) {
-        res.status(500).json({ message: error.message });
+
+        res.status(500).json({
+            message: error.message
+        });
+
     }
 };
