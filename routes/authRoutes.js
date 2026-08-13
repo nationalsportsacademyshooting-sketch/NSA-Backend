@@ -15,7 +15,11 @@ router.get(
     authMiddleware,
     authController.getMyAttendance
 );
-
+router.get(
+    "/my-daily-scores",
+    authMiddleware,
+    authController.getMyDailyScores
+);
 router.put(
     "/change-admin",
     authMiddleware,

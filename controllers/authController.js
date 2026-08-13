@@ -339,3 +339,39 @@ exports.getMyAttendance = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+exports.getMyDailyScores = async (req, res) => {
+    try {
+        if (req.user.role !== "shooter") {
+            return res.status(403).json({
+                message: "Shooter access required"
+            });
+        }
+
+        const shooter = await User.findById(
+            req.user.id,
+            "name category dailyScores"
+        );
+
+        if (!shooter) {
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+        }
+
+        const dailyScores = [...(shooter.dailyScores || [])].sort(
+            (first, second) => second.date.localeCompare(first.date)
+        );
+
+        res.json({
+            name: shooter.name,
+            category: shooter.category,
+            dailyScores
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            message: error.message
+        });
+    }
+};

@@ -59,4 +59,18 @@ router.delete(
     adminController.deleteShooter
 );
 
+router.get(
+    "/daily-score/:shooterId",
+    auth,
+    admin,
+    adminController.getDailyScore
+);
+
+router.put(
+    "/daily-score",
+    auth,
+    admin,
+    adminController.saveDailyScore
+);
+
 module.exports = router;

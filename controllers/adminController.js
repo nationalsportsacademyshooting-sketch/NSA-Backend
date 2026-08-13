@@ -377,3 +377,97 @@ exports.getAttendance = async (req, res) => {
     }
 
 };
+
+exports.saveDailyScore = async (req, res) => {
+    try {
+        const { shooterId, date, series } = req.body;
+
+        if (!shooterId || !date || !Array.isArray(series)) {
+            return res.status(400).json({
+                message: "Shooter, date and series scores are required"
+            });
+        }
+
+        const shooter = await User.findOne({
+            _id: shooterId,
+            role: "shooter"
+        });
+
+        if (!shooter) {
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+        }
+
+        const expectedSeries =
+            shooter.category === "ISSF" ? 6 : 4;
+
+        if (
+            series.length !== expectedSeries ||
+            series.some(score =>
+                !Number.isFinite(Number(score)) ||
+                Number(score) < 0 ||
+                Number(score) > 100
+            )
+        ) {
+            return res.status(400).json({
+                message: `Enter ${expectedSeries} series scores between 0 and 100`
+            });
+        }
+
+        const cleanSeries = series.map(Number);
+        const total = cleanSeries.reduce(
+            (sum, score) => sum + score,
+            0
+        );
+
+        const existingScore = shooter.dailyScores.find(
+            score => score.date === date
+        );
+
+        if (existingScore) {
+            existingScore.series = cleanSeries;
+            existingScore.total = total;
+        } else {
+            shooter.dailyScores.push({
+                date,
+                series: cleanSeries,
+                total
+            });
+        }
+
+        await shooter.save();
+
+        res.json({
+            message: "Daily score saved successfully",
+            total
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getDailyScore = async (req, res) => {
+    try {
+        const shooter = await User.findById(
+            req.params.shooterId,
+            "dailyScores"
+        );
+
+        if (!shooter) {
+            return res.status(404).json({
+                message: "Shooter not found"
+            });
+        }
+
+        const score = shooter.dailyScores.find(
+            item => item.date === req.query.date
+        );
+
+        res.json({ score: score || null });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
