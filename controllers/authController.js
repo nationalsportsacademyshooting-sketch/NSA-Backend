@@ -377,34 +377,55 @@ exports.getMyDailyScores = async (req, res) => {
 };
 // Get logged-in shooter's own profile
 exports.getMyProfile = async (req, res) => {
-
     try {
 
+        // Only shooters can access their own profile
         if (req.user.role !== "shooter") {
             return res.status(403).json({
-                message: "Shooter access required"
+                message: "Access denied"
             });
         }
 
-        const shooter = await User.findById(
-            req.user.id,
-            "-password -failedAttempts -lockUntil"
-        );
 
+        // Find the logged-in shooter
+        const shooter = await User.findById(req.user.id)
+            .select("-password -failedAttempts -lockUntil");
+
+
+        // Shooter not found
         if (!shooter) {
             return res.status(404).json({
                 message: "Shooter not found"
             });
         }
 
-        res.json(shooter);
+
+        // Return ALL profile details
+        res.status(200).json({
+            name: shooter.name || "",
+            username: shooter.username || "",
+            mobile: shooter.mobile || "",
+            email: shooter.email || "",
+            dob: shooter.dob || "",
+            age: shooter.age || "",
+            category: shooter.category || "",
+            event: shooter.event || "",
+            gender: shooter.gender || "",
+            className: shooter.className || "",
+            assignedTimeSlot: shooter.assignedTimeSlot || "",
+            profilePhoto: shooter.profilePhoto || "",
+            role: shooter.role || ""
+        });
 
     } catch (error) {
 
+        console.error(
+            "Get profile error:",
+            error
+        );
+
         res.status(500).json({
-            message: error.message
+            message: "Server error"
         });
-
     }
-
 };
