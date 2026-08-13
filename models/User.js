@@ -96,6 +96,23 @@ const userSchema = new mongoose.Schema({
         }
     }],
 
+    dailyScores: [{
+    date: {
+        type: String,
+        required: true
+    },
+
+    series: [{
+        type: Number,
+        min: 0,
+        max: 100
+    }],
+
+    total: {
+        type: Number,
+        required: true
+    }
+}],
     // ==========================
     // LOGIN SECURITY
     // ==========================

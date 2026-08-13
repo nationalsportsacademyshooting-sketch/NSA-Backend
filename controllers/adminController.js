@@ -421,6 +421,10 @@ exports.saveDailyScore = async (req, res) => {
             0
         );
 
+        if (!Array.isArray(shooter.dailyScores)) {
+    shooter.dailyScores = [];
+}
+
         const existingScore = shooter.dailyScores.find(
             score => score.date === date
         );
@@ -461,7 +465,7 @@ exports.getDailyScore = async (req, res) => {
             });
         }
 
-        const score = shooter.dailyScores.find(
+       const score = (shooter.dailyScores || []).find(
             item => item.date === req.query.date
         );
 
