@@ -1,5 +1,5 @@
-const Booking = require("../models/Booking");
-const User = require("../models/User");
+const Booking = require("../models/booking");
+const User = require("../models/user");
 
 const TIME_ZONE = "Asia/Kolkata";
 
