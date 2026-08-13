@@ -7,8 +7,8 @@ const {
     deleteNewsEvent
 } = require("../controllers/newsController");
 
-const auth = require("../middleware/auth");
-const admin = require("../middleware/admin");
+const auth = require("../middleware/authMiddleware");
+const admin = require("../middleware/adminMiddleware");
 
 const router = express.Router();
 
