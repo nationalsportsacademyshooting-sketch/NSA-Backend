@@ -35,6 +35,9 @@ app.use("/api/auth/login", loginLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+const bookingRoutes = require("./routes/bookingRoutes");
+
+app.use("/api/bookings", bookingRoutes)
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
