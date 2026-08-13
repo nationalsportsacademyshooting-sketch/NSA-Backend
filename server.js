@@ -30,11 +30,13 @@ const loginLimiter = rateLimit({
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const newsRoutes = require("./routes/newsRoutes");
 
 app.use("/api/auth/login", loginLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/news", newsRoutes);
 const bookingRoutes = require("./routes/bookingRoutes");
 
 app.use("/api/bookings", bookingRoutes)
