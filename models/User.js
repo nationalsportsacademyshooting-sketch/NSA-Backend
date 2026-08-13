@@ -82,6 +82,20 @@ const userSchema = new mongoose.Schema({
         default: ""
     },
 
+    // One attendance entry per calendar date.  Keeping it on the shooter
+    // account ensures attendance is always tied to the correct login/profile.
+    attendance: [{
+        date: {
+            type: String,
+            required: true
+        },
+        status: {
+            type: String,
+            enum: ["present", "absent"],
+            required: true
+        }
+    }],
+
     // ==========================
     // LOGIN SECURITY
     // ==========================

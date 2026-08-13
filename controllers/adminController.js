@@ -270,3 +270,110 @@ exports.deleteShooter = async (req, res) => {
     }
 
 };
+
+// Save attendance for every shooter in one selected class and date.
+exports.saveAttendance = async (req, res) => {
+
+    try {
+
+        const { date, className, records } = req.body;
+
+        if (!date || !className || !Array.isArray(records)) {
+            return res.status(400).json({
+                message: "Date, class and attendance records are required"
+            });
+        }
+
+        const validStatuses = new Set(["present", "absent"]);
+
+        if (records.some(record =>
+            !record.shooterId || !validStatuses.has(record.status)
+        )) {
+            return res.status(400).json({
+                message: "Each attendance record needs a shooter and valid status"
+            });
+        }
+
+        const shooterIds = records.map(record => record.shooterId);
+        const shooters = await User.find({
+            _id: { $in: shooterIds },
+            role: "shooter",
+            className
+        });
+
+        if (shooters.length !== shooterIds.length) {
+            return res.status(400).json({
+                message: "One or more shooters do not belong to the selected class"
+            });
+        }
+
+        const statusByShooterId = new Map(
+            records.map(record => [String(record.shooterId), record.status])
+        );
+
+        shooters.forEach(shooter => {
+            const existingRecord = shooter.attendance.find(
+                record => record.date === date
+            );
+
+            if (existingRecord) {
+                existingRecord.status = statusByShooterId.get(String(shooter._id));
+            } else {
+                shooter.attendance.push({
+                    date,
+                    status: statusByShooterId.get(String(shooter._id))
+                });
+            }
+        });
+
+        await Promise.all(shooters.map(shooter => shooter.save()));
+
+        res.json({
+            message: "Attendance saved successfully"
+        });
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json({ message: err.message });
+
+    }
+
+};
+
+// Load the already-saved statuses for a selected class and date.
+exports.getAttendance = async (req, res) => {
+
+    try {
+
+        const { date, className } = req.query;
+
+        if (!date || !className) {
+            return res.status(400).json({
+                message: "Date and class are required"
+            });
+        }
+
+        const shooters = await User.find(
+            { role: "shooter", className },
+            "attendance"
+        );
+
+        const records = shooters.map(shooter => {
+            const entry = shooter.attendance.find(record => record.date === date);
+
+            return {
+                shooterId: shooter._id,
+                status: entry ? entry.status : "present"
+            };
+        });
+
+        res.json({ records });
+
+    } catch (err) {
+
+        res.status(500).json({ message: err.message });
+
+    }
+
+};

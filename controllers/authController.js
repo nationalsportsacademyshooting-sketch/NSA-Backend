@@ -313,3 +313,29 @@ exports.deleteShooter = async (req, res) => {
     }
 
 };
+
+// A shooter can only retrieve attendance attached to their own account.
+exports.getMyAttendance = async (req, res) => {
+    try {
+        if (req.user.role !== "shooter") {
+            return res.status(403).json({ message: "Shooter access required" });
+        }
+
+        const shooter = await User.findById(
+            req.user.id,
+            "name className attendance"
+        );
+
+        if (!shooter) {
+            return res.status(404).json({ message: "Shooter not found" });
+        }
+
+        const attendance = [...shooter.attendance].sort(
+            (first, second) => second.date.localeCompare(first.date)
+        );
+
+        res.json({ name: shooter.name, className: shooter.className, attendance });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};

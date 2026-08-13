@@ -10,6 +10,12 @@ router.post("/register", authController.register);
 
 router.post("/login", authController.login);
 
+router.get(
+    "/my-attendance",
+    authMiddleware,
+    authController.getMyAttendance
+);
+
 router.put(
     "/change-admin",
     authMiddleware,

@@ -29,6 +29,20 @@ router.get(
     adminController.getShooter
 );
 
+router.get(
+    "/attendance",
+    auth,
+    admin,
+    adminController.getAttendance
+);
+
+router.put(
+    "/attendance",
+    auth,
+    admin,
+    adminController.saveAttendance
+);
+
 // Update Shooter
 router.put(
     "/update-shooter/:id",
