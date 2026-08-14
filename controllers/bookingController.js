@@ -130,19 +130,23 @@ exports.cancelMyTomorrowBooking = async (req, res) => {
     }
 };
 
-exports.getTomorrowBookingsForAdmin = async (req, res) => {
+exports.getUpcomingBookingsForAdmin = async (req, res) => {
     try {
-        const date = getIndiaDate(1);
+        // Get today's date in India
+        const today = getIndiaDate(0);
 
-        const bookings = await Booking.find({ date })
-            .populate(
-                "shooter",
-                "name className category profilePhoto"
-            );
+        // Get every booking from today onwards.
+        // Past dates are automatically excluded.
+        const bookings = await Booking.find({
+            date: { $gte: today }
+        })
+        .populate(
+            "shooter",
+            "name className category profilePhoto"
+        );
 
         // Convert time slot start time into minutes
         function getStartTime(timeSlot) {
-
             const match = String(timeSlot).match(
                 /(\d{1,2}):(\d{2})\s*(AM|PM)/i
             );
@@ -153,12 +157,10 @@ exports.getTomorrowBookingsForAdmin = async (req, res) => {
             const minute = Number(match[2]);
             const period = match[3].toUpperCase();
 
-            // 12 AM = 00:00
             if (hour === 12) {
                 hour = 0;
             }
 
-            // PM
             if (period === "PM") {
                 hour += 12;
             }
@@ -166,10 +168,18 @@ exports.getTomorrowBookingsForAdmin = async (req, res) => {
             return (hour * 60) + minute;
         }
 
-        // Sort:
-        // 1. Earliest time slot first
-        // 2. Lane number within the same time slot
+        // Sort by:
+        // 1. Booking date
+        // 2. Time slot
+        // 3. Lane number
         bookings.sort((a, b) => {
+
+            const dateDifference =
+                String(a.date).localeCompare(String(b.date));
+
+            if (dateDifference !== 0) {
+                return dateDifference;
+            }
 
             const timeDifference =
                 getStartTime(a.timeSlot) -
@@ -184,15 +194,19 @@ exports.getTomorrowBookingsForAdmin = async (req, res) => {
         });
 
         res.json({
-            date,
+            fromDate: today,
             bookings
         });
 
     } catch (error) {
 
+        console.error(
+            "Upcoming admin bookings error:",
+            error
+        );
+
         res.status(500).json({
             message: error.message
         });
-
     }
 };
