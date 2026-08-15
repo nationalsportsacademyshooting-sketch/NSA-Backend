@@ -13,7 +13,7 @@ const resultController =
 // GET ALL RESULTS
 // Admin + Shooter
 // ==============================
-router.get("/my-results", auth, resultController.getMyResults);
+router.get("/my-results", auth, resultController.getResults);
 
 router.get(
     "/",
