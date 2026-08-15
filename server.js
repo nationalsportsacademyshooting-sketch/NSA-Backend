@@ -8,15 +8,24 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+// ==============================
+// MIDDLEWARE
+// ==============================
+
 app.use(cors());
 
-// Allow larger requests for result uploads
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({
-    limit: "25mb",
-    extended: true
+app.use(express.json({
+    limit: "15mb"
 }));
+
+app.use(express.urlencoded({
+    extended: true,
+    limit: "15mb"
+}));
+
+// ==============================
+// LOGIN RATE LIMIT
+// ==============================
 
 const loginLimiter = rateLimit({
 
@@ -29,12 +38,16 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 
     message: {
-        message: "Too many login attempts. Please try again after 10 minutes."
+        message:
+            "Too many login attempts. Please try again after 10 minutes."
     }
 
 });
 
-// Routes
+// ==============================
+// ROUTES
+// ==============================
+
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const newsRoutes = require("./routes/newsRoutes");
@@ -44,29 +57,54 @@ const bookingRoutes = require("./routes/bookingRoutes");
 app.use("/api/auth/login", loginLimiter);
 
 app.use("/api/auth", authRoutes);
+
 app.use("/api/admin", adminRoutes);
+
 app.use("/api/news", newsRoutes);
+
 app.use("/api/results", resultRoutes);
+
 app.use("/api/bookings", bookingRoutes);
 
-// MongoDB Connection
+// ==============================
+// MONGODB
+// ==============================
+
 mongoose.connect(process.env.MONGO_URI)
+
 .then(() => {
+
     console.log("✅ MongoDB Connected Successfully");
+
 })
+
 .catch((err) => {
+
     console.log("❌ MongoDB Error:");
     console.log(err);
+
 });
 
-// Home Route
+// ==============================
+// HOME
+// ==============================
+
 app.get("/", (req, res) => {
+
     res.send("Backend Working");
+
 });
 
-// Start Server
+// ==============================
+// SERVER
+// ==============================
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+
+    console.log(
+        `Server running on port ${PORT}`
+    );
+
 });
