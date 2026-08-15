@@ -130,6 +130,139 @@ exports.cancelMyTomorrowBooking = async (req, res) => {
     }
 };
 
+
+/* =========================================================
+   ADMIN - EDIT BOOKING
+========================================================= */
+
+exports.updateBookingForAdmin = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+
+        const date = String(req.body.date || "").trim();
+        const timeSlot = String(req.body.timeSlot || "").trim();
+        const laneNumber = Number(req.body.laneNumber);
+
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return res.status(400).json({
+                message: "Enter a valid booking date."
+            });
+        }
+
+        if (!timeSlot) {
+            return res.status(400).json({
+                message: "Training time is required."
+            });
+        }
+
+        if (!Number.isInteger(laneNumber) || laneNumber < 1 || laneNumber > 8) {
+            return res.status(400).json({
+                message: "Choose a lane from 1 to 8."
+            });
+        }
+
+        const today = getIndiaDate(0);
+
+        if (date < today) {
+            return res.status(400).json({
+                message: "Past bookings cannot be edited."
+            });
+        }
+
+        const booking = await Booking.findById(bookingId);
+
+        if (!booking) {
+            return res.status(404).json({
+                message: "Booking not found."
+            });
+        }
+
+        const laneConflict = await Booking.findOne({
+            _id: { $ne: booking._id },
+            date,
+            timeSlot,
+            laneNumber
+        });
+
+        if (laneConflict) {
+            return res.status(409).json({
+                message: "This lane is already booked for that date and time."
+            });
+        }
+
+        const shooterDateConflict = await Booking.findOne({
+            _id: { $ne: booking._id },
+            shooter: booking.shooter,
+            date
+        });
+
+        if (shooterDateConflict) {
+            return res.status(409).json({
+                message: "This shooter already has a booking on that date."
+            });
+        }
+
+        booking.date = date;
+        booking.timeSlot = timeSlot;
+        booking.laneNumber = laneNumber;
+
+        await booking.save();
+
+        const updatedBooking = await Booking.findById(booking._id)
+            .populate(
+                "shooter",
+                "name className category profilePhoto"
+            );
+
+        res.json({
+            message: "Lane booking updated successfully.",
+            booking: updatedBooking
+        });
+
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({
+                message: "This booking conflicts with another booking."
+            });
+        }
+
+        console.error("Admin update booking error:", error);
+
+        res.status(500).json({
+            message: error.message
+        });
+    }
+};
+
+
+/* =========================================================
+   ADMIN - CANCEL BOOKING
+========================================================= */
+
+exports.cancelBookingForAdmin = async (req, res) => {
+    try {
+        const booking = await Booking.findByIdAndDelete(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({
+                message: "Booking not found."
+            });
+        }
+
+        res.json({
+            message: "Lane booking cancelled successfully."
+        });
+
+    } catch (error) {
+        console.error("Admin cancel booking error:", error);
+
+        res.status(500).json({
+            message: error.message
+        });
+    }
+};
+
+
 exports.getUpcomingBookingsForAdmin = async (req, res) => {
     try {
         // Get today's date in India
