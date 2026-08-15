@@ -10,10 +10,17 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Allow larger requests for result uploads
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({
+    limit: "25mb",
+    extended: true
+}));
+
 const loginLimiter = rateLimit({
 
-    windowMs: 10 * 60 * 1000, // 10 minutes
+    windowMs: 10 * 60 * 1000,
 
     max: 10,
 
@@ -32,6 +39,7 @@ const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 const resultRoutes = require("./routes/resultRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
 
 app.use("/api/auth/login", loginLimiter);
 
@@ -39,9 +47,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/results", resultRoutes);
-const bookingRoutes = require("./routes/bookingRoutes");
-
-app.use("/api/bookings", bookingRoutes)
+app.use("/api/bookings", bookingRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
