@@ -5,7 +5,8 @@ const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        trim: true
     },
 
     password: {
@@ -25,7 +26,8 @@ const userSchema = new mongoose.Schema({
 
     name: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
 
     category: {
@@ -68,6 +70,10 @@ const userSchema = new mongoose.Schema({
         default: ""
     },
 
+    // Profile photo is stored as a data URL so the existing static
+    // Netlify frontend can display it without a separate image server.
+    // Keep uploads small (the controller enforces a 2 MB original-file
+    // equivalent limit) so MongoDB's document size limit is not reached.
     profilePhoto: {
         type: String,
         default: ""
@@ -82,8 +88,6 @@ const userSchema = new mongoose.Schema({
         default: ""
     },
 
-    // One attendance entry per calendar date.  Keeping it on the shooter
-    // account ensures attendance is always tied to the correct login/profile.
     attendance: [{
         date: {
             type: String,
@@ -91,28 +95,27 @@ const userSchema = new mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ["present", "absent"],
+            enum: ["present", "absent", "leave"],
             required: true
         }
     }],
 
     dailyScores: [{
-    date: {
-        type: String,
-        required: true
-    },
-
-    series: [{
-        type: Number,
-        min: 0,
-        max: 100
+        date: {
+            type: String,
+            required: true
+        },
+        series: [{
+            type: Number,
+            min: 0,
+            max: 100
+        }],
+        total: {
+            type: Number,
+            required: true
+        }
     }],
 
-    total: {
-        type: Number,
-        required: true
-    }
-}],
     // ==========================
     // LOGIN SECURITY
     // ==========================
@@ -123,6 +126,19 @@ const userSchema = new mongoose.Schema({
     },
 
     lockUntil: {
+        type: Date,
+        default: null
+    },
+
+    // One active login session per account. A second browser/device cannot
+    // log into the same account until the active session is explicitly logged out
+    // or its JWT has expired.
+    activeSessionId: {
+        type: String,
+        default: null
+    },
+
+    activeSessionExpiresAt: {
         type: Date,
         default: null
     }

@@ -27,6 +27,12 @@ exports.createResult = async (req, res) => {
             });
         }
 
+        const rawBase64 = String(fileData).replace(/^data:[^;]+;base64,/, "");
+        const estimatedBytes = Math.floor((rawBase64.length * 3) / 4);
+        if (estimatedBytes > 11 * 1024 * 1024) {
+            return res.status(413).json({ message: "PDF is too large. Please upload a PDF smaller than 11 MB." });
+        }
+
         const result = new Result({
             title: title.trim(),
             eventName: eventName.trim(),
@@ -71,7 +77,7 @@ exports.getResults = async (req, res) => {
             .select("-fileData")
             .sort({ date: -1, createdAt: -1 });
 
-        res.json(results);
+        res.json({ results });
 
     } catch (error) {
 
@@ -221,6 +227,11 @@ exports.updateResult = async (req, res) => {
 
         // Replace PDF only if admin selected a new one
         if (req.body.fileData) {
+            const rawBase64 = String(req.body.fileData).replace(/^data:[^;]+;base64,/, "");
+            const estimatedBytes = Math.floor((rawBase64.length * 3) / 4);
+            if (estimatedBytes > 11 * 1024 * 1024) {
+                return res.status(413).json({ message: "PDF is too large. Please upload a PDF smaller than 11 MB." });
+            }
 
             result.fileData =
                 Buffer.from(req.body.fileData, "base64");

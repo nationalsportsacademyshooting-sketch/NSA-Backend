@@ -1,0 +1,10 @@
+const express=require("express");
+const router=express.Router();
+const auth=require("../middleware/authMiddleware");
+const admin=require("../middleware/adminMiddleware");
+const controller=require("../controllers/leaveController");
+router.post("/",auth,controller.createLeave);
+router.get("/my",auth,controller.getMyLeaves);
+router.get("/",auth,admin,controller.getAllLeaves);
+router.put("/:id/status",auth,admin,controller.updateLeaveStatus);
+module.exports=router;
