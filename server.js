@@ -15,12 +15,12 @@ const app = express();
 app.use(cors());
 
 app.use(express.json({
-    limit: "15mb"
+    limit: "20mb"
 }));
 
 app.use(express.urlencoded({
     extended: true,
-    limit: "15mb"
+    limit: "20mb"
 }));
 
 // ==============================
@@ -53,6 +53,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 const resultRoutes = require("./routes/resultRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
+const leaveRoutes = require("./routes/leaveRoutes");
 
 app.use("/api/auth/login", loginLimiter);
 
@@ -65,6 +66,7 @@ app.use("/api/news", newsRoutes);
 app.use("/api/results", resultRoutes);
 
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/leaves", leaveRoutes);
 
 // ==============================
 // MONGODB
