@@ -130,9 +130,8 @@ const userSchema = new mongoose.Schema({
         default: null
     },
 
-    // One active login session per account. A second browser/device cannot
-    // log into the same account until the active session is explicitly logged out
-    // or its JWT has expired.
+    // One active login session per account. A successful new login replaces
+    // the previous session, which automatically signs the old browser/device out.
     activeSessionId: {
         type: String,
         default: null

@@ -70,19 +70,14 @@ exports.login = async (req, res) => {
             await user.save();
         }
 
-        // If the previous session is still valid, block another login.
-        if (user.activeSessionId && user.activeSessionExpiresAt && user.activeSessionExpiresAt > new Date()) {
-            return res.status(409).json({
-                message: "This account is already logged in on another device or browser. Please log out there before logging in again."
-            });
-        }
-
-        // Clean up an expired session.
-        if (user.activeSessionId && (!user.activeSessionExpiresAt || user.activeSessionExpiresAt <= new Date())) {
-            user.activeSessionId = null;
-            user.activeSessionExpiresAt = null;
-            await user.save();
-        }
+        // Do NOT reject the login merely because an old activeSessionId exists.
+        // Browsers/PWAs can lose local storage, users can clear site data, or a
+        // previous device can be abandoned. In those cases the server-side
+        // session would otherwise create a false "already logged in" error.
+        // The password is verified first, then this login becomes the new active
+        // session and the previous token is automatically invalidated. This is
+        // the same practical behaviour used by many professional apps: a new
+        // successful login safely replaces a stale/old session.
 
         // Check if account is temporarily locked.
         if (user.lockUntil && user.lockUntil > new Date()) {
@@ -126,6 +121,9 @@ exports.login = async (req, res) => {
         user.failedAttempts = 0;
         user.lockUntil = null;
 
+        // A successful login always creates a fresh server-side session.
+        // This automatically invalidates any previous device/browser session
+        // when the new sessionId is saved below.
         const sessionId = crypto.randomUUID();
         const expiresIn = rememberMe ? "30d" : "1d";
         const sessionExpiresAt = getTokenExpiryDate(rememberMe);
