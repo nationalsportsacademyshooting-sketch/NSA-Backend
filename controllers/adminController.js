@@ -41,7 +41,6 @@ exports.createShooter = async (req, res) => {
             });
         }
 
-
         const {
             name,
             username,
@@ -207,7 +206,7 @@ exports.getShooter = async (req, res) => {
                     status:
                         "approved"
                 },
-                "-password -documents.data"
+                "-password"
             );
 
 
@@ -220,8 +219,162 @@ exports.getShooter = async (req, res) => {
         }
 
 
+        const result =
+            shooter.toObject();
+
+
+        // ====================================================
+        // CURRENT PERSONAL DETAILS
+        // ====================================================
+
+        result.firstName =
+            shooter.firstName || "";
+
+        result.lastName =
+            shooter.lastName || "";
+
+        result.fatherName =
+            shooter.fatherName || "";
+
+        result.motherName =
+            shooter.motherName || "";
+
+        result.gender =
+            shooter.gender || "";
+
+
+        // ====================================================
+        // PHONE
+        // ====================================================
+
+        result.phone =
+            shooter.phone ||
+            shooter.mobile ||
+            "";
+
+
+        // ====================================================
+        // DATE OF BIRTH
+        // ====================================================
+
+        result.dateOfBirth =
+            shooter.dateOfBirth ||
+            shooter.dob ||
+            "";
+
+
+        // ====================================================
+        // EMAIL
+        // ====================================================
+
+        result.email =
+            shooter.email || "";
+
+
+        // ====================================================
+        // CLASS
+        // ====================================================
+
+        result.class =
+            shooter.className || "";
+
+
+        // ====================================================
+        // SECTION
+        // ====================================================
+
+        result.section =
+            shooter.section || "";
+
+
+        // ====================================================
+        // ADDRESS
+        // ====================================================
+
+        result.address =
+            shooter.address || "";
+
+
+        // ====================================================
+        // SHOOTING DETAILS
+        // ====================================================
+
+        result.shooterId =
+            shooter.shooterId || "";
+
+        result.event =
+            shooter.event || "";
+
+        result.category =
+            shooter.category || "";
+
+
+        // ====================================================
+        // ACCOUNT
+        // ====================================================
+
+        result.username =
+            shooter.username || "";
+
+
+        // ====================================================
+        // DOCUMENT INFORMATION
+        // ====================================================
+        // Do not send document binary data.
+        // Actual documents are loaded using the
+        // document endpoint.
+        // ====================================================
+
+        if (result.documents) {
+
+            Object.keys(
+                result.documents
+            ).forEach(
+                documentName => {
+
+                    const document =
+                        result.documents[
+                            documentName
+                        ];
+
+
+                    if (document) {
+
+                        result.documents[
+                            documentName
+                        ] = {
+
+                            originalName:
+                                document.originalName ||
+                                "",
+
+                            mimeType:
+                                document.mimeType ||
+                                "",
+
+                            size:
+                                document.size ||
+                                0,
+
+                            available:
+                                !!document.data ||
+                                !!document.mimeType ||
+                                !!document.originalName
+
+                        };
+                    }
+
+                }
+            );
+        }
+
+
+        // ====================================================
+        // SEND RESULT
+        // ====================================================
+
         res.json(
-            shooter
+            result
         );
 
 
@@ -771,7 +924,6 @@ exports.updateShooter = async (req, res) => {
                 phone;
 
 
-            // Keep old field working
             shooter.mobile =
                 phone;
         }
@@ -795,7 +947,6 @@ exports.updateShooter = async (req, res) => {
                 dateOfBirth;
 
 
-            // Keep old field working
             shooter.dob =
                 dateOfBirth;
         }
@@ -832,7 +983,6 @@ exports.updateShooter = async (req, res) => {
                 ).trim();
 
 
-            // New form field -> existing DB field
             shooter.className =
                 classValue;
         }
@@ -964,8 +1114,8 @@ exports.updateShooter = async (req, res) => {
 
         // ====================================================
         // PASSWORD
-        // ====================================================
         // Blank = keep existing password
+        // ====================================================
 
         if (
             req.body.password &&
@@ -1494,7 +1644,9 @@ exports.getAttendance = async (req, res) => {
 
 
         res.json({
+
             records
+
         });
 
 
