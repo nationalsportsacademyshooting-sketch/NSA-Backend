@@ -5,7 +5,10 @@ const auth = require("../middleware/authMiddleware");
 const admin = require("../middleware/adminMiddleware");
 const adminController = require("../controllers/adminController");
 
-// Create Shooter
+// =====================================================
+// CREATE SHOOTER
+// =====================================================
+
 router.post(
     "/create-shooter",
     auth,
@@ -13,7 +16,13 @@ router.post(
     adminController.createShooter
 );
 
-// Get All Shooters
+
+// =====================================================
+// SHOOTER PROFILE
+// Only approved shooters should be returned by
+// adminController.getShooters()
+// =====================================================
+
 router.get(
     "/shooters",
     auth,
@@ -21,13 +30,76 @@ router.get(
     adminController.getShooters
 );
 
-// Get Single Shooter
 router.get(
     "/shooter/:id",
     auth,
     admin,
     adminController.getShooter
 );
+
+router.put(
+    "/update-shooter/:id",
+    auth,
+    admin,
+    adminController.updateShooter
+);
+
+router.delete(
+    "/delete-shooter/:id",
+    auth,
+    admin,
+    adminController.deleteShooter
+);
+
+
+// =====================================================
+// ID APPROVAL
+// =====================================================
+
+// Get all pending shooter registrations
+router.get(
+    "/id-approval",
+    auth,
+    admin,
+    adminController.getPendingShooters
+);
+
+// Get complete pending/approved shooter details
+router.get(
+    "/id-approval/:id",
+    auth,
+    admin,
+    adminController.getShooterDetails
+);
+
+// Approve shooter
+router.put(
+    "/id-approval/:id/approve",
+    auth,
+    admin,
+    adminController.approveShooter
+);
+
+// Reject shooter
+router.put(
+    "/id-approval/:id/reject",
+    auth,
+    admin,
+    adminController.rejectShooter
+);
+
+// View uploaded document
+router.get(
+    "/id-approval/:id/document/:document",
+    auth,
+    admin,
+    adminController.getShooterDocument
+);
+
+
+// =====================================================
+// ATTENDANCE
+// =====================================================
 
 router.get(
     "/attendance",
@@ -43,21 +115,10 @@ router.put(
     adminController.saveAttendance
 );
 
-// Update Shooter
-router.put(
-    "/update-shooter/:id",
-    auth,
-    admin,
-    adminController.updateShooter
-);
 
-// Delete Shooter
-router.delete(
-    "/delete-shooter/:id",
-    auth,
-    admin,
-    adminController.deleteShooter
-);
+// =====================================================
+// DAILY SCORE
+// =====================================================
 
 router.get(
     "/daily-score/:shooterId",
@@ -72,5 +133,6 @@ router.put(
     admin,
     adminController.saveDailyScore
 );
+
 
 module.exports = router;

@@ -1,149 +1,347 @@
 const mongoose = require("mongoose");
 
-const userSchema = new mongoose.Schema({
 
-    username: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true
+// ============================================================
+// DOCUMENT SCHEMA
+// ============================================================
+
+const documentSchema = new mongoose.Schema(
+    {
+        originalName: {
+            type: String,
+            default: ""
+        },
+
+        mimeType: {
+            type: String,
+            default: ""
+        },
+
+        size: {
+            type: Number,
+            default: 0
+        },
+
+        data: {
+            type: Buffer,
+            default: null
+        }
     },
+    {
+        _id: false
+    }
+);
 
-    password: {
-        type: String,
-        required: true
-    },
 
-    role: {
-        type: String,
-        enum: ["admin", "shooter"],
-        default: "shooter"
-    },
+// ============================================================
+// USER SCHEMA
+// ============================================================
 
-    // ==========================
-    // PERSONAL DETAILS
-    // ==========================
+const userSchema = new mongoose.Schema(
+    {
 
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
+        // =====================================================
+        // LOGIN
+        // =====================================================
 
-    category: {
-        type: String,
-        enum: ["NR", "ISSF"],
-        default: "NR"
-    },
+        username: {
+            type: String,
+            required: true,
+            unique: true,
+            trim: true,
+            lowercase: true
+        },
 
-    event: {
-        type: String,
-        default: ""
-    },
-
-    age: {
-        type: Number
-    },
-
-    mobile: {
-        type: String,
-        default: ""
-    },
-
-    email: {
-        type: String,
-        default: ""
-    },
-
-    dob: {
-        type: Date
-    },
-
-    gender: {
-        type: String,
-        enum: ["Male", "Female", "Other"],
-        default: "Male"
-    },
-
-    className: {
-        type: String,
-        default: ""
-    },
-
-    // Profile photo is stored as a data URL so the existing static
-    // Netlify frontend can display it without a separate image server.
-    // Keep uploads small (the controller enforces a 2 MB original-file
-    // equivalent limit) so MongoDB's document size limit is not reached.
-    profilePhoto: {
-        type: String,
-        default: ""
-    },
-
-    // ==========================
-    // TRAINING TIME
-    // ==========================
-
-    assignedTimeSlot: {
-        type: String,
-        default: ""
-    },
-
-    attendance: [{
-        date: {
+        password: {
             type: String,
             required: true
         },
+
+
+        // =====================================================
+        // ACCOUNT
+        // =====================================================
+
+        role: {
+            type: String,
+            enum: [
+                "admin",
+                "shooter"
+            ],
+            default: "shooter"
+        },
+
         status: {
             type: String,
-            enum: ["present", "absent", "leave"],
-            required: true
-        }
-    }],
-
-    dailyScores: [{
-        date: {
-            type: String,
-            required: true
+            enum: [
+                "pending",
+                "approved",
+                "rejected"
+            ],
+            default: "approved"
         },
-        series: [{
+
+
+        // =====================================================
+        // BASIC DETAILS
+        // =====================================================
+
+        name: {
+            type: String,
+            default: ""
+        },
+
+        firstName: {
+            type: String,
+            default: ""
+        },
+
+        lastName: {
+            type: String,
+            default: ""
+        },
+
+        fatherName: {
+            type: String,
+            default: ""
+        },
+
+        motherName: {
+            type: String,
+            default: ""
+        },
+
+
+        // =====================================================
+        // PERSONAL DETAILS
+        // =====================================================
+
+        email: {
+            type: String,
+            default: "",
+            lowercase: true,
+            trim: true
+        },
+
+        // Used by existing admin-created shooter system
+        mobile: {
+            type: String,
+            default: ""
+        },
+
+        // Used by new registration system
+        phone: {
+            type: String,
+            default: ""
+        },
+
+        gender: {
+            type: String,
+            default: ""
+        },
+
+        // Existing field
+        dob: {
+            type: String,
+            default: ""
+        },
+
+        // Used by new registration system
+        dateOfBirth: {
+            type: String,
+            default: ""
+        },
+
+        age: {
             type: Number,
-            min: 0,
-            max: 100
-        }],
-        total: {
+            default: null
+        },
+
+        address: {
+            type: String,
+            default: ""
+        },
+
+
+        // =====================================================
+        // SCHOOL DETAILS
+        // =====================================================
+
+        className: {
+            type: String,
+            default: ""
+        },
+
+        section: {
+            type: String,
+            default: ""
+        },
+
+
+        // =====================================================
+        // SHOOTING DETAILS
+        // =====================================================
+
+        shooterId: {
+            type: String,
+            unique: true,
+            sparse: true,
+            default: null
+        },
+
+        event: {
+            type: String,
+            default: ""
+        },
+
+        category: {
+            type: String,
+            default: ""
+        },
+
+        assignedTimeSlot: {
+            type: String,
+            default: ""
+        },
+
+
+        // =====================================================
+        // PROFILE PHOTO
+        // =====================================================
+
+        profilePhoto: {
+            type: String,
+            default: ""
+        },
+
+
+        // =====================================================
+        // REGISTRATION DOCUMENTS
+        // =====================================================
+
+        documents: {
+
+            passportPhoto: {
+                type: documentSchema,
+                default: null
+            },
+
+            identityProof: {
+                type: documentSchema,
+                default: null
+            },
+
+            birthCertificate: {
+                type: documentSchema,
+                default: null
+            },
+
+            // OPTIONAL
+            affidavit: {
+                type: documentSchema,
+                default: null
+            },
+
+            schoolShooterId: {
+                type: documentSchema,
+                default: null
+            }
+
+        },
+
+
+        // =====================================================
+        // ADMIN APPROVAL
+        // =====================================================
+
+        rejectionReason: {
+            type: String,
+            default: ""
+        },
+
+        approvedAt: {
+            type: Date,
+            default: null
+        },
+
+        rejectedAt: {
+            type: Date,
+            default: null
+        },
+
+
+        // =====================================================
+        // LOGIN SECURITY
+        // =====================================================
+
+        failedAttempts: {
             type: Number,
-            required: true
-        }
-    }],
+            default: 0
+        },
 
-    // ==========================
-    // LOGIN SECURITY
-    // ==========================
+        lockUntil: {
+            type: Date,
+            default: null
+        },
 
-    failedAttempts: {
-        type: Number,
-        default: 0
+        activeSessionId: {
+            type: String,
+            default: null
+        },
+
+        activeSessionExpiresAt: {
+            type: Date,
+            default: null
+        },
+
+
+        // =====================================================
+        // ATTENDANCE
+        // =====================================================
+
+        attendance: [
+            {
+                date: {
+                    type: String
+                },
+
+                status: {
+                    type: String
+                }
+            }
+        ],
+
+
+        // =====================================================
+        // DAILY SCORES
+        // =====================================================
+
+        dailyScores: [
+            {
+                date: {
+                    type: String
+                },
+
+                series: {
+                    type: [Number],
+                    default: []
+                },
+
+                total: {
+                    type: Number,
+                    default: 0
+                }
+            }
+        ]
+
     },
-
-    lockUntil: {
-        type: Date,
-        default: null
-    },
-
-    // One active login session per account. A successful new login replaces
-    // the previous session, which automatically signs the old browser/device out.
-    activeSessionId: {
-        type: String,
-        default: null
-    },
-
-    activeSessionExpiresAt: {
-        type: Date,
-        default: null
+    {
+        timestamps: true
     }
+);
 
-}, {
-    timestamps: true
-});
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model(
+    "User",
+    userSchema
+);

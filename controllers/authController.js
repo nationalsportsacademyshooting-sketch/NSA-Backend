@@ -4,396 +4,2076 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
 const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
-function getTokenExpiryDate(rememberMe) {
-    return new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000);
+
+// =========================================================
+// TOKEN EXPIRY
+// =========================================================
+
+function getTokenExpiryDate() {
+    return new Date(
+        Date.now() + 24 * 60 * 60 * 1000
+    );
 }
+
+
+// =========================================================
+// PUBLIC USER DATA
+// =========================================================
 
 function publicUser(user) {
     return {
         id: user._id,
         username: user.username,
         role: user.role,
-        name: user.name,
+        name: user.name || "",
+        shooterId: user.shooterId || "",
+        status: user.status || "",
         profilePhoto: user.profilePhoto || ""
     };
 }
 
-// Register
+
+// =========================================================
+// REGISTER SHOOTER
+// =========================================================
+
 exports.register = async (req, res) => {
     try {
-        const { username, password, role, name } = req.body;
-        const normalizedUsername = String(username || "").trim();
 
-        const existingUser = await User.findOne({ username: normalizedUsername });
+        const {
+            firstName,
+            lastName,
+            fatherName,
+            motherName,
+            gender,
+            phone,
+            email,
+            username,
+            address,
+            class: className,
+            section,
+            dateOfBirth,
+            event,
+            category,
+            password,
+            confirmPassword,
+            declaration
+        } = req.body || {};
 
-        if (existingUser) {
-            return res.status(400).json({ message: "Username already exists" });
+
+        // =====================================================
+        // REQUIRED FIELDS
+        // =====================================================
+
+        if (
+            !firstName ||
+            !lastName ||
+            !fatherName ||
+            !motherName ||
+            !gender ||
+            !phone ||
+            !email ||
+            !address ||
+            !className ||
+            !section ||
+            !dateOfBirth ||
+            !event ||
+            !category ||
+            !password ||
+            !confirmPassword
+        ) {
+            return res.status(400).json({
+                message:
+                    "Please fill all required fields."
+            });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = new User({
-            username: normalizedUsername,
-            password: hashedPassword,
-            role,
-            name: String(name || normalizedUsername).trim()
-        });
+        // =====================================================
+        // DECLARATION
+        // =====================================================
+
+        if (
+            declaration !== true &&
+            declaration !== "true"
+        ) {
+            return res.status(400).json({
+                message:
+                    "You must accept the declaration."
+            });
+        }
+
+
+        // =====================================================
+        // PHONE
+        // =====================================================
+
+        const normalizedPhone =
+            String(phone)
+                .trim();
+
+        if (
+            !/^[6-9]\d{9}$/.test(
+                normalizedPhone
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Please enter a valid 10-digit Indian mobile number."
+            });
+        }
+
+
+        // =====================================================
+        // EMAIL
+        // =====================================================
+
+        const normalizedEmail =
+            String(email)
+                .trim()
+                .toLowerCase();
+
+        const emailRegex =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (
+            !emailRegex.test(
+                normalizedEmail
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Please enter a valid email address."
+            });
+        }
+
+
+        // =====================================================
+        // USERNAME = EMAIL
+        // =====================================================
+
+        const normalizedUsername =
+            normalizedEmail;
+
+        if (
+            username &&
+            String(username)
+                .trim()
+                .toLowerCase() !==
+                normalizedEmail
+        ) {
+            return res.status(400).json({
+                message:
+                    "Username must be the registered email address."
+            });
+        }
+
+
+        // =====================================================
+        // PASSWORD
+        // =====================================================
+
+        if (
+            String(password).length < 8
+        ) {
+            return res.status(400).json({
+                message:
+                    "Password must be at least 8 characters long."
+            });
+        }
+
+        if (
+            String(password) !==
+            String(confirmPassword)
+        ) {
+            return res.status(400).json({
+                message:
+                    "Passwords do not match."
+            });
+        }
+
+
+        // =====================================================
+        // DATE OF BIRTH
+        // Expected: YYYY-MM-DD
+        // =====================================================
+
+        const dobString =
+            String(dateOfBirth)
+                .trim();
+
+        if (
+            !/^\d{4}-\d{2}-\d{2}$/.test(
+                dobString
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Invalid date of birth."
+            });
+        }
+
+        const [
+            year,
+            month,
+            day
+        ] = dobString.split("-");
+
+        const dobDate =
+            new Date(
+                Number(year),
+                Number(month) - 1,
+                Number(day)
+            );
+
+        if (
+            Number.isNaN(
+                dobDate.getTime()
+            ) ||
+            dobDate.getFullYear() !==
+                Number(year) ||
+            dobDate.getMonth() !==
+                Number(month) - 1 ||
+            dobDate.getDate() !==
+                Number(day)
+        ) {
+            return res.status(400).json({
+                message:
+                    "Invalid date of birth."
+            });
+        }
+
+
+        // =====================================================
+        // SHOOTER ID
+        // NSA + DDMMYYYY
+        // =====================================================
+
+        const shooterId =
+            `NSA${day}${month}${year}`;
+
+
+        // =====================================================
+        // CHECK DUPLICATE USERNAME
+        // =====================================================
+
+        const existingUser =
+            await User.findOne({
+                username:
+                    normalizedUsername
+            });
+
+        if (existingUser) {
+            return res.status(400).json({
+                message:
+                    "An account with this email already exists."
+            });
+        }
+
+
+        // =====================================================
+        // CHECK DUPLICATE SHOOTER ID
+        // =====================================================
+
+        const existingShooterId =
+            await User.findOne({
+                shooterId
+            });
+
+        if (existingShooterId) {
+            return res.status(400).json({
+                message:
+                    `Shooter ID ${shooterId} already exists.`
+            });
+        }
+
+
+        // =====================================================
+        // FILES
+        // =====================================================
+
+        const files =
+            req.files || {};
+
+        const passportPhoto =
+            files.passportPhoto?.[0];
+
+        const identityProof =
+            files.identityProof?.[0];
+
+        const birthCertificate =
+            files.birthCertificate?.[0];
+
+        const affidavit =
+            files.affidavit?.[0];
+
+        const schoolShooterId =
+            files.schoolShooterId?.[0];
+
+
+        // =====================================================
+        // REQUIRED DOCUMENTS
+        // =====================================================
+
+        if (!passportPhoto) {
+            return res.status(400).json({
+                message:
+                    "Passport Size Photo is required."
+            });
+        }
+
+        if (!identityProof) {
+            return res.status(400).json({
+                message:
+                    "Age/Identity Proof is required."
+            });
+        }
+
+        if (!birthCertificate) {
+            return res.status(400).json({
+                message:
+                    "Birth Certificate is required."
+            });
+        }
+
+        if (!schoolShooterId) {
+            return res.status(400).json({
+                message:
+                    "School ID Card/Shooter ID Card is required."
+            });
+        }
+
+
+        // =====================================================
+        // UPLOADED FILES
+        // =====================================================
+
+        const uploadedFiles = [
+            passportPhoto,
+            identityProof,
+            birthCertificate,
+            affidavit,
+            schoolShooterId
+        ].filter(Boolean);
+
+
+        // =====================================================
+        // FILE SIZE
+        // =====================================================
+
+        for (
+            const file of uploadedFiles
+        ) {
+
+            if (
+                file.size >
+                DOCUMENT_MAX_BYTES
+            ) {
+                return res.status(413).json({
+                    message:
+                        `${file.originalname} is larger than 5 MB.`
+                });
+            }
+        }
+
+
+        // =====================================================
+        // ALLOWED FILE TYPES
+        // =====================================================
+
+        const allowedMimeTypes = [
+            "image/jpeg",
+            "image/png",
+            "application/pdf"
+        ];
+
+        for (
+            const file of uploadedFiles
+        ) {
+
+            if (
+                !allowedMimeTypes.includes(
+                    file.mimetype
+                )
+            ) {
+                return res.status(400).json({
+                    message:
+                        `${file.originalname} has an unsupported file type. Only JPG, JPEG, PNG and PDF are allowed.`
+                });
+            }
+        }
+
+
+        // =====================================================
+        // PASSPORT PHOTO SIZE
+        // =====================================================
+
+        if (
+            passportPhoto.size >
+            PROFILE_PHOTO_MAX_BYTES
+        ) {
+            return res.status(413).json({
+                message:
+                    "Passport photo must be 2 MB or smaller."
+            });
+        }
+
+
+        // =====================================================
+        // HASH PASSWORD
+        // =====================================================
+
+        const hashedPassword =
+            await bcrypt.hash(
+                String(password),
+                10
+            );
+
+
+        // =====================================================
+        // FULL NAME
+        // =====================================================
+
+        const fullName =
+            `${String(firstName).trim()} ${String(lastName).trim()}`
+                .trim();
+
+
+        // =====================================================
+        // CREATE USER
+        // =====================================================
+
+        const user =
+            new User({
+
+                username:
+                    normalizedUsername,
+
+                password:
+                    hashedPassword,
+
+                role:
+                    "shooter",
+
+                // IMPORTANT:
+                // New registrations require admin approval.
+                status:
+                    "pending",
+
+                name:
+                    fullName,
+
+                firstName:
+                    String(firstName).trim(),
+
+                lastName:
+                    String(lastName).trim(),
+
+                fatherName:
+                    String(fatherName).trim(),
+
+                motherName:
+                    String(motherName).trim(),
+
+                gender:
+                    String(gender).trim(),
+
+                mobile:
+                    normalizedPhone,
+
+                phone:
+                    normalizedPhone,
+
+                email:
+                    normalizedEmail,
+
+                address:
+                    String(address).trim(),
+
+                className:
+                    String(className).trim(),
+
+                section:
+                    String(section).trim(),
+
+                // Store the original YYYY-MM-DD string
+                // because User.js uses String for DOB.
+                dob:
+                    dobString,
+
+                dateOfBirth:
+                    dobString,
+
+                shooterId:
+                    shooterId,
+
+                event:
+                    String(event).trim(),
+
+                category:
+                    String(category).trim(),
+
+                rejectionReason:
+                    "",
+
+                approvedAt:
+                    null,
+
+                rejectedAt:
+                    null,
+
+                profilePhoto:
+                    "",
+
+                documents: {
+
+                    passportPhoto: {
+                        data:
+                            passportPhoto.buffer,
+
+                        mimeType:
+                            passportPhoto.mimetype,
+
+                        originalName:
+                            passportPhoto.originalname,
+
+                        size:
+                            passportPhoto.size
+                    },
+
+                    identityProof: {
+                        data:
+                            identityProof.buffer,
+
+                        mimeType:
+                            identityProof.mimetype,
+
+                        originalName:
+                            identityProof.originalname,
+
+                        size:
+                            identityProof.size
+                    },
+
+                    birthCertificate: {
+                        data:
+                            birthCertificate.buffer,
+
+                        mimeType:
+                            birthCertificate.mimetype,
+
+                        originalName:
+                            birthCertificate.originalname,
+
+                        size:
+                            birthCertificate.size
+                    },
+
+                    affidavit:
+                        affidavit
+                            ? {
+                                data:
+                                    affidavit.buffer,
+
+                                mimeType:
+                                    affidavit.mimetype,
+
+                                originalName:
+                                    affidavit.originalname,
+
+                                size:
+                                    affidavit.size
+                            }
+                            : null,
+
+                    schoolShooterId: {
+                        data:
+                            schoolShooterId.buffer,
+
+                        mimeType:
+                            schoolShooterId.mimetype,
+
+                        originalName:
+                            schoolShooterId.originalname,
+
+                        size:
+                            schoolShooterId.size
+                    }
+                }
+            });
+
+
+        // =====================================================
+        // SAVE
+        // =====================================================
 
         await user.save();
 
-        res.status(201).json({ message: "User created successfully" });
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
+
+        return res.status(201).json({
+
+            message:
+                "Registration submitted successfully. Your account is waiting for admin approval.",
+
+            shooterId:
+                shooterId,
+
+            username:
+                normalizedUsername,
+
+            status:
+                "pending"
+        });
+
 
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        console.error(
+            "Registration error:",
+            err
+        );
+
+
+        // =====================================================
+        // DUPLICATE KEY
+        // =====================================================
+
+        if (
+            err &&
+            err.code === 11000
+        ) {
+
+            if (
+                err.keyPattern?.username
+            ) {
+                return res.status(409).json({
+                    message:
+                        "An account with this email already exists."
+                });
+            }
+
+            if (
+                err.keyPattern?.shooterId
+            ) {
+                return res.status(409).json({
+                    message:
+                        "This Shooter ID already exists."
+                });
+            }
+        }
+
+
+        return res.status(500).json({
+            message:
+                err.message ||
+                "Registration failed."
+        });
     }
 };
 
-// Login — one active session per account.
+
+// =========================================================
+// LOGIN
+// One active session per account
+// =========================================================
+
 exports.login = async (req, res) => {
     try {
-        const username = String(req.body.username || "").trim();
-        const password = String(req.body.password || "");
-        const rememberMe = Boolean(req.body.rememberMe);
 
-        const user = await User.findOne({ username });
+        const username =
+            String(
+                req.body?.username || ""
+            )
+                .trim()
+                .toLowerCase();
+
+        const password =
+            String(
+                req.body?.password || ""
+            );
+
+
+        if (
+            !username ||
+            !password
+        ) {
+            return res.status(400).json({
+                message:
+                    "Username and password are required."
+            });
+        }
+
+
+        const user =
+            await User.findOne({
+                username
+            });
+
 
         if (!user) {
-            return res.status(400).json({ message: "Invalid username or password" });
+            return res.status(400).json({
+                message:
+                    "Invalid username or password"
+            });
         }
 
-        // Initialise security fields for older users.
-        if (user.failedAttempts === undefined || user.activeSessionExpiresAt === undefined) {
-            user.failedAttempts = user.failedAttempts || 0;
-            if (user.activeSessionExpiresAt === undefined) user.activeSessionExpiresAt = null;
-            if (user.activeSessionId === undefined) user.activeSessionId = null;
-            await user.save();
+
+        // =====================================================
+        // INITIALISE SECURITY FIELDS
+        // =====================================================
+
+        if (
+            user.failedAttempts === undefined
+        ) {
+            user.failedAttempts = 0;
         }
 
-        // Do NOT reject the login merely because an old activeSessionId exists.
-        // Browsers/PWAs can lose local storage, users can clear site data, or a
-        // previous device can be abandoned. In those cases the server-side
-        // session would otherwise create a false "already logged in" error.
-        // The password is verified first, then this login becomes the new active
-        // session and the previous token is automatically invalidated. This is
-        // the same practical behaviour used by many professional apps: a new
-        // successful login safely replaces a stale/old session.
+        if (
+            user.activeSessionId === undefined
+        ) {
+            user.activeSessionId = null;
+        }
 
-        // Check if account is temporarily locked.
-        if (user.lockUntil && user.lockUntil > new Date()) {
-            const secondsLeft = Math.ceil((user.lockUntil - new Date()) / 1000);
+        if (
+            user.activeSessionExpiresAt === undefined
+        ) {
+            user.activeSessionExpiresAt = null;
+        }
+
+
+        // =====================================================
+        // ACCOUNT LOCK
+        // =====================================================
+
+        if (
+            user.lockUntil &&
+            user.lockUntil > new Date()
+        ) {
+
+            const secondsLeft =
+                Math.ceil(
+                    (
+                        user.lockUntil -
+                        new Date()
+                    ) / 1000
+                );
+
             return res.status(429).json({
-                message: `Too many failed attempts. Please wait ${secondsLeft} seconds.`,
+
+                message:
+                    `Too many failed attempts. Please wait ${secondsLeft} seconds.`,
+
                 secondsLeft
             });
         }
 
-        // Lock has expired.
-        if (user.lockUntil && user.lockUntil <= new Date()) {
+
+        // =====================================================
+        // EXPIRED LOCK
+        // =====================================================
+
+        if (
+            user.lockUntil &&
+            user.lockUntil <= new Date()
+        ) {
+
             user.failedAttempts = 0;
             user.lockUntil = null;
+
             await user.save();
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+
+        // =====================================================
+        // PASSWORD
+        // =====================================================
+
+        const isMatch =
+            await bcrypt.compare(
+                password,
+                user.password
+            );
+
 
         if (!isMatch) {
-            user.failedAttempts = (user.failedAttempts || 0) + 1;
+
+            user.failedAttempts =
+                (user.failedAttempts || 0) + 1;
 
             let lockSeconds = 0;
-            if (user.failedAttempts > 5) {
-                lockSeconds = Math.min(300, 10 + ((user.failedAttempts - 6) * 5));
-                user.lockUntil = new Date(Date.now() + lockSeconds * 1000);
+
+
+            if (
+                user.failedAttempts > 5
+            ) {
+
+                lockSeconds =
+                    Math.min(
+                        300,
+                        10 +
+                        (
+                            (
+                                user.failedAttempts -
+                                6
+                            ) * 5
+                        )
+                    );
+
+                user.lockUntil =
+                    new Date(
+                        Date.now() +
+                        lockSeconds * 1000
+                    );
             }
+
 
             await user.save();
 
-            if (user.failedAttempts > 5) {
+
+            if (
+                user.failedAttempts > 5
+            ) {
                 return res.status(429).json({
-                    message: `Too many failed attempts. Please wait ${lockSeconds} seconds.`,
-                    secondsLeft: lockSeconds
+
+                    message:
+                        `Too many failed attempts. Please wait ${lockSeconds} seconds.`,
+
+                    secondsLeft:
+                        lockSeconds
                 });
             }
 
-            return res.status(400).json({ message: "Invalid username or password" });
+
+            return res.status(400).json({
+                message:
+                    "Invalid username or password"
+            });
         }
+
+
+        // =====================================================
+        // APPROVAL CHECK
+        // =====================================================
+
+        if (
+            user.role === "shooter" &&
+            user.status !== "approved"
+        ) {
+
+            if (
+                user.status === "rejected"
+            ) {
+
+                return res.status(403).json({
+
+                    message:
+                        user.rejectionReason
+                            ? `Registration rejected: ${user.rejectionReason}`
+                            : "Your registration has been rejected by the admin."
+                });
+            }
+
+
+            return res.status(403).json({
+                message:
+                    "Your registration is pending admin approval."
+            });
+        }
+
+
+        // =====================================================
+        // SUCCESSFUL LOGIN
+        // =====================================================
 
         user.failedAttempts = 0;
         user.lockUntil = null;
 
-        // A successful login always creates a fresh server-side session.
-        // This automatically invalidates any previous device/browser session
-        // when the new sessionId is saved below.
-        const sessionId = crypto.randomUUID();
-        const expiresIn = rememberMe ? "30d" : "1d";
-        const sessionExpiresAt = getTokenExpiryDate(rememberMe);
 
-        const token = jwt.sign(
-            {
-                id: user._id,
-                role: user.role,
-                sessionId
-            },
-            process.env.JWT_SECRET,
-            { expiresIn }
-        );
+        const sessionId =
+            crypto.randomUUID();
 
-        user.activeSessionId = sessionId;
-        user.activeSessionExpiresAt = sessionExpiresAt;
+
+        const sessionExpiresAt =
+            getTokenExpiryDate();
+
+
+        const token =
+            jwt.sign(
+                {
+                    id:
+                        user._id,
+
+                    role:
+                        user.role,
+
+                    sessionId:
+                        sessionId
+                },
+
+                process.env.JWT_SECRET,
+
+                {
+                    expiresIn:
+                        "1d"
+                }
+            );
+
+
+        // New login replaces previous session.
+        user.activeSessionId =
+            sessionId;
+
+        user.activeSessionExpiresAt =
+            sessionExpiresAt;
+
+
         await user.save();
 
-        res.json({
-            message: "Login Successful",
-            token,
-            user: publicUser(user),
-            sessionExpiresAt: sessionExpiresAt.toISOString()
+
+        return res.json({
+
+            message:
+                "Login Successful",
+
+            token:
+
+                token,
+
+            user:
+                publicUser(user),
+
+            sessionExpiresAt:
+                sessionExpiresAt.toISOString()
         });
 
+
     } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).json({ message: err.message });
+
+        console.error(
+            "Login error:",
+            err
+        );
+
+        return res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
-// Logout — revokes the current account session on the backend.
+
+// =========================================================
+// LOGOUT
+// =========================================================
+
 exports.logout = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id);
 
-        if (user && (!req.user.sessionId || user.activeSessionId === req.user.sessionId)) {
-            user.activeSessionId = null;
-            user.activeSessionExpiresAt = null;
+        const user =
+            await User.findById(
+                req.user.id
+            );
+
+
+        if (
+            user &&
+            (
+                !req.user.sessionId ||
+                user.activeSessionId ===
+                    req.user.sessionId
+            )
+        ) {
+
+            user.activeSessionId =
+                null;
+
+            user.activeSessionExpiresAt =
+                null;
+
             await user.save();
         }
 
-        res.json({ message: "Logged out successfully" });
+
+        res.json({
+            message:
+                "Logged out successfully"
+        });
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
-// Get logged-in user's own profile — admin + shooter.
+
+// =========================================================
+// GET MY PROFILE
+// =========================================================
+
 exports.getMyProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id)
-            .select("-password -failedAttempts -lockUntil -activeSessionId -activeSessionExpiresAt");
+
+        const user =
+            await User.findById(
+                req.user.id
+            )
+                .select(
+                    "-password " +
+                    "-failedAttempts " +
+                    "-lockUntil " +
+                    "-activeSessionId " +
+                    "-activeSessionExpiresAt " +
+                    "-documents"
+                );
+
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({
+                message:
+                    "User not found"
+            });
         }
 
+
         res.status(200).json({
-            id: user._id,
-            name: user.name || "",
-            username: user.username || "",
-            mobile: user.mobile || "",
-            email: user.email || "",
-            dob: user.dob || "",
-            age: user.age ?? "",
-            category: user.category || "",
-            event: user.event || "",
-            gender: user.gender || "",
-            className: user.className || "",
-            assignedTimeSlot: user.assignedTimeSlot || "",
-            profilePhoto: user.profilePhoto || "",
-            role: user.role || ""
+
+            id:
+                user._id,
+
+            shooterId:
+                user.shooterId || "",
+
+            name:
+                user.name || "",
+
+            firstName:
+                user.firstName || "",
+
+            lastName:
+                user.lastName || "",
+
+            fatherName:
+                user.fatherName || "",
+
+            motherName:
+                user.motherName || "",
+
+            username:
+                user.username || "",
+
+            mobile:
+                user.mobile || "",
+
+            phone:
+                user.phone || "",
+
+            email:
+                user.email || "",
+
+            dob:
+                user.dob || "",
+
+            dateOfBirth:
+                user.dateOfBirth || "",
+
+            age:
+                user.age ?? "",
+
+            category:
+                user.category || "",
+
+            event:
+                user.event || "",
+
+            gender:
+                user.gender || "",
+
+            className:
+                user.className || "",
+
+            section:
+                user.section || "",
+
+            address:
+                user.address || "",
+
+            assignedTimeSlot:
+                user.assignedTimeSlot || "",
+
+            profilePhoto:
+                user.profilePhoto || "",
+
+            status:
+                user.status || "",
+
+            role:
+                user.role || ""
         });
+
+
     } catch (error) {
-        console.error("Get profile error:", error);
-        res.status(500).json({ message: "Server error" });
+
+        console.error(
+            "Get profile error:",
+            error
+        );
+
+        res.status(500).json({
+            message:
+                "Server error"
+        });
     }
 };
 
-// Update only the currently authenticated user's profile.
-// Shooter/admin ownership is enforced here; no user id is accepted from the client.
+
+// =========================================================
+// UPDATE MY PROFILE
+// =========================================================
+
 exports.updateMyProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id);
+
+        const user =
+            await User.findById(
+                req.user.id
+            );
+
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({
+                message:
+                    "User not found"
+            });
         }
 
-        const body = req.body || {};
+
+        const body =
+            req.body || {};
+
+
         const allowedFields = [
-            "name", "username", "mobile", "email", "dob", "age",
-            "gender", "className", "category", "event", "assignedTimeSlot"
+            "name",
+            "username",
+            "mobile",
+            "phone",
+            "email",
+            "dob",
+            "dateOfBirth",
+            "age",
+            "gender",
+            "className",
+            "section",
+            "address",
+            "category",
+            "event",
+            "assignedTimeSlot"
         ];
 
-        if (body.username !== undefined) {
-            const username = String(body.username).trim();
-            if (!username) return res.status(400).json({ message: "Username is required" });
 
-            const duplicate = await User.findOne({
-                username,
-                _id: { $ne: user._id }
-            });
+        // =====================================================
+        // USERNAME
+        // =====================================================
+
+        if (
+            body.username !== undefined
+        ) {
+
+            const username =
+                String(
+                    body.username
+                )
+                    .trim()
+                    .toLowerCase();
+
+
+            if (!username) {
+                return res.status(400).json({
+                    message:
+                        "Username is required"
+                });
+            }
+
+
+            const duplicate =
+                await User.findOne({
+
+                    username,
+
+                    _id: {
+                        $ne:
+                            user._id
+                    }
+                });
+
 
             if (duplicate) {
-                return res.status(409).json({ message: "Username already exists" });
+                return res.status(409).json({
+                    message:
+                        "Username already exists"
+                });
             }
 
-            user.username = username;
+
+            user.username =
+                username;
         }
 
-        for (const field of allowedFields) {
-            if (field === "username") continue;
-            if (body[field] !== undefined) {
-                user[field] = body[field];
+
+        // =====================================================
+        // OTHER FIELDS
+        // =====================================================
+
+        for (
+            const field of allowedFields
+        ) {
+
+            if (
+                field === "username"
+            ) {
+                continue;
+            }
+
+
+            if (
+                body[field] !== undefined
+            ) {
+
+                user[field] =
+                    body[field];
             }
         }
 
-        if (body.dob === "" || body.dob === null) user.dob = undefined;
-        if (body.age === "") user.age = undefined;
 
-        if (body.password) {
-            user.password = await bcrypt.hash(String(body.password), 10);
+        // =====================================================
+        // PASSWORD
+        // =====================================================
+
+        if (
+            body.password
+        ) {
+
+            user.password =
+                await bcrypt.hash(
+                    String(
+                        body.password
+                    ),
+                    10
+                );
         }
 
-        if (body.profilePhoto !== undefined) {
-            const photo = String(body.profilePhoto || "");
 
-            if (photo && !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(photo)) {
-                return res.status(400).json({ message: "Profile photo must be a PNG, JPG, WEBP or GIF image." });
+        // =====================================================
+        // PROFILE PHOTO
+        // =====================================================
+
+        if (
+            body.profilePhoto !==
+            undefined
+        ) {
+
+            const photo =
+                String(
+                    body.profilePhoto || ""
+                );
+
+
+            if (
+                photo &&
+                !/^data:image\/(png|jpe?g|webp|gif);base64,/i
+                    .test(photo)
+            ) {
+
+                return res.status(400).json({
+                    message:
+                        "Profile photo must be a PNG, JPG, WEBP or GIF image."
+                });
             }
+
 
             if (photo) {
-                const commaIndex = photo.indexOf(",");
-                const base64Part = commaIndex >= 0 ? photo.slice(commaIndex + 1) : "";
-                const estimatedBytes = Math.floor((base64Part.length * 3) / 4);
 
-                if (estimatedBytes > PROFILE_PHOTO_MAX_BYTES) {
-                    return res.status(413).json({ message: "Profile photo is too large. Please choose an image under 2 MB." });
+                const commaIndex =
+                    photo.indexOf(",");
+
+
+                const base64Part =
+                    commaIndex >= 0
+                        ? photo.slice(
+                            commaIndex + 1
+                        )
+                        : "";
+
+
+                const estimatedBytes =
+                    Math.floor(
+                        (
+                            base64Part.length *
+                            3
+                        ) / 4
+                    );
+
+
+                if (
+                    estimatedBytes >
+                    PROFILE_PHOTO_MAX_BYTES
+                ) {
+
+                    return res.status(413).json({
+                        message:
+                            "Profile photo is too large. Please choose an image under 2 MB."
+                    });
                 }
             }
 
-            user.profilePhoto = photo;
+
+            user.profilePhoto =
+                photo;
         }
 
+
         await user.save();
+
 
         res.json({
-            message: "Profile updated successfully",
-            user: publicUser(user)
-        });
-    } catch (err) {
-        console.error("Update my profile error:", err);
 
-        if (err && err.code === 11000) {
-            return res.status(409).json({ message: "Username already exists" });
+            message:
+                "Profile updated successfully",
+
+            user:
+                publicUser(user)
+        });
+
+
+    } catch (err) {
+
+        console.error(
+            "Update my profile error:",
+            err
+        );
+
+
+        if (
+            err &&
+            err.code === 11000
+        ) {
+
+            return res.status(409).json({
+                message:
+                    "Username already exists"
+            });
         }
 
-        res.status(500).json({ message: err.message });
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
-// Change Admin Username & Password — retained for compatibility.
+
+// =========================================================
+// CHANGE ADMIN USERNAME & PASSWORD
+// =========================================================
+
 exports.changeAdmin = async (req, res) => {
     try {
-        const { newUsername, newPassword } = req.body;
-        const user = await User.findById(req.user.id);
 
-        if (!user || user.role !== "admin") {
-            return res.status(404).json({ message: "Admin not found" });
+        const {
+            newUsername,
+            newPassword
+        } = req.body;
+
+
+        const user =
+            await User.findById(
+                req.user.id
+            );
+
+
+        if (
+            !user ||
+            user.role !== "admin"
+        ) {
+            return res.status(404).json({
+                message:
+                    "Admin not found"
+            });
         }
 
-        if (newUsername) user.username = String(newUsername).trim();
-        if (newPassword) user.password = await bcrypt.hash(newPassword, 10);
+
+        if (newUsername) {
+
+            user.username =
+                String(
+                    newUsername
+                )
+                    .trim()
+                    .toLowerCase();
+        }
+
+
+        if (newPassword) {
+
+            user.password =
+                await bcrypt.hash(
+                    String(
+                        newPassword
+                    ),
+                    10
+                );
+        }
+
 
         await user.save();
 
-        res.json({ message: "Admin account updated successfully" });
+
+        res.json({
+            message:
+                "Admin account updated successfully"
+        });
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
+
+
+// =========================================================
+// GET ALL APPROVED SHOOTERS
+// =========================================================
+// IMPORTANT:
+// Pending and rejected shooters are NOT shown here.
+// They only appear in ID Approval when pending.
 
 exports.getShooters = async (req, res) => {
     try {
-        const shooters = await User.find({ role: "shooter" }, "-password")
-            .sort({ name: 1 });
-        res.json(shooters);
+
+        const shooters =
+            await User.find(
+                {
+                    role:
+                        "shooter",
+
+                    status:
+                        "approved"
+                },
+
+                "-password -documents.data"
+            )
+                .sort({
+                    name:
+                        1
+                });
+
+
+        res.json(
+            shooters
+        );
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        console.error(
+            "Get shooters error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
-exports.updateShooter = async (req, res) => {
+
+// =========================================================
+// GET PENDING REGISTRATION REQUESTS
+// =========================================================
+
+exports.getPendingShooters = async (req, res) => {
     try {
-        const shooter = await User.findById(req.params.id);
+
+        const shooters =
+            await User.find(
+                {
+                    role:
+                        "shooter",
+
+                    status:
+                        "pending"
+                },
+
+                "-password -documents.data"
+            )
+                .sort({
+                    createdAt:
+                        -1
+                });
+
+
+        res.json(
+            shooters
+        );
+
+
+    } catch (err) {
+
+        console.error(
+            "Get pending shooters error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
+    }
+};
+
+
+// =========================================================
+// GET SHOOTER DETAILS
+// =========================================================
+
+exports.getShooterDetails = async (req, res) => {
+    try {
+
+        const shooter =
+            await User.findOne({
+
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter"
+
+            }).select(
+                "-password " +
+                "-failedAttempts " +
+                "-lockUntil " +
+                "-activeSessionId " +
+                "-activeSessionExpiresAt"
+            );
+
 
         if (!shooter) {
-            return res.status(404).json({ message: "Shooter not found" });
+            return res.status(404).json({
+                message:
+                    "Shooter not found"
+            });
         }
 
-        shooter.name = req.body.name;
-        shooter.username = req.body.username;
-        shooter.category = req.body.category;
-        shooter.age = req.body.age;
-        shooter.gender = req.body.gender;
-        shooter.mobile = req.body.mobile;
-        shooter.assignedTimeSlot = req.body.assignedTimeSlot;
 
-        if (req.body.password && req.body.password !== "") {
-            shooter.password = await bcrypt.hash(req.body.password, 10);
+        const result =
+            shooter.toObject();
+
+
+        // =====================================================
+        // DOCUMENT AVAILABILITY
+        // =====================================================
+
+        if (
+            result.documents
+        ) {
+
+            Object.keys(
+                result.documents
+            ).forEach(
+                (key) => {
+
+                    if (
+                        result.documents[key]
+                    ) {
+
+                        const doc =
+                            result.documents[key];
+
+
+                        if (
+                            doc.mimeType ||
+                            doc.originalName ||
+                            doc.size > 0
+                        ) {
+
+                            doc.available =
+                                true;
+
+                        } else {
+
+                            doc.available =
+                                false;
+                        }
+
+
+                        // Do not send binary data
+                        // in the details response.
+
+                        delete doc.data;
+                    }
+                }
+            );
         }
+
+
+        res.json(
+            result
+        );
+
+
+    } catch (err) {
+
+        console.error(
+            "Get shooter details error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
+    }
+};
+
+
+// =========================================================
+// APPROVE SHOOTER
+// =========================================================
+
+exports.approveShooter = async (req, res) => {
+    try {
+
+        const shooter =
+            await User.findOne({
+
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter",
+
+                status:
+                    "pending"
+            });
+
+
+        if (!shooter) {
+            return res.status(404).json({
+                message:
+                    "Pending shooter not found"
+            });
+        }
+
+
+        shooter.status =
+            "approved";
+
+
+        shooter.rejectionReason =
+            "";
+
+
+        shooter.approvedAt =
+            new Date();
+
+
+        shooter.rejectedAt =
+            null;
+
 
         await shooter.save();
-        res.json({ message: "Shooter updated successfully" });
+
+
+        res.json({
+
+            message:
+                "Shooter approved successfully.",
+
+            shooterId:
+                shooter.shooterId,
+
+            status:
+                shooter.status
+        });
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        console.error(
+            "Approve shooter error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
-exports.deleteShooter = async (req, res) => {
+
+// =========================================================
+// REJECT SHOOTER
+// =========================================================
+
+exports.rejectShooter = async (req, res) => {
     try {
-        const shooter = await User.findById(req.params.id);
+
+        const shooter =
+            await User.findOne({
+
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter",
+
+                status:
+                    "pending"
+            });
+
 
         if (!shooter) {
-            return res.status(404).json({ message: "Shooter not found" });
+            return res.status(404).json({
+                message:
+                    "Pending shooter not found"
+            });
         }
 
-        await shooter.deleteOne();
-        res.json({ message: "Shooter deleted successfully" });
+
+        const reason =
+            String(
+                req.body?.reason ||
+                req.body?.rejectionReason ||
+                ""
+            )
+                .trim();
+
+
+        if (!reason) {
+            return res.status(400).json({
+                message:
+                    "A rejection reason is required."
+            });
+        }
+
+
+        shooter.status =
+            "rejected";
+
+
+        shooter.rejectionReason =
+            reason;
+
+
+        shooter.rejectedAt =
+            new Date();
+
+
+        shooter.approvedAt =
+            null;
+
+
+        // Revoke any active session.
+
+        shooter.activeSessionId =
+            null;
+
+        shooter.activeSessionExpiresAt =
+            null;
+
+
+        await shooter.save();
+
+
+        res.json({
+
+            message:
+                "Shooter registration rejected.",
+
+            shooterId:
+                shooter.shooterId,
+
+            status:
+                shooter.status,
+
+            rejectionReason:
+                shooter.rejectionReason
+        });
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        console.error(
+            "Reject shooter error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
+
+
+// =========================================================
+// GET REGISTRATION DOCUMENT
+// =========================================================
+
+exports.getShooterDocument = async (req, res) => {
+    try {
+
+        const {
+            id,
+            document
+        } = req.params;
+
+
+        const allowedDocuments = [
+            "passportPhoto",
+            "identityProof",
+            "birthCertificate",
+            "affidavit",
+            "schoolShooterId"
+        ];
+
+
+        if (
+            !allowedDocuments.includes(
+                document
+            )
+        ) {
+
+            return res.status(400).json({
+                message:
+                    "Invalid document type."
+            });
+        }
+
+
+        const shooter =
+            await User.findOne({
+
+                _id:
+                    id,
+
+                role:
+                    "shooter"
+
+            }).select(
+                `documents.${document}`
+            );
+
+
+        if (!shooter) {
+            return res.status(404).json({
+                message:
+                    "Shooter not found."
+            });
+        }
+
+
+        const file =
+            shooter.documents?.[document];
+
+
+        if (
+            !file ||
+            !file.data
+        ) {
+
+            return res.status(404).json({
+                message:
+                    "Document not found."
+            });
+        }
+
+
+        // User.js stores mimeType.
+
+        res.set(
+            "Content-Type",
+            file.mimeType ||
+            "application/octet-stream"
+        );
+
+
+        if (
+            file.originalName
+        ) {
+
+            res.set(
+                "Content-Disposition",
+                `inline; filename="${file.originalName.replace(/"/g, "")}"`
+            );
+        }
+
+
+        res.send(
+            file.data
+        );
+
+
+    } catch (err) {
+
+        console.error(
+            "Get document error:",
+            err
+        );
+
+        res.status(500).json({
+            message:
+                err.message
+        });
+    }
+};
+
+
+// =========================================================
+// GET MY ATTENDANCE
+// =========================================================
 
 exports.getMyAttendance = async (req, res) => {
     try {
-        if (req.user.role !== "shooter") {
-            return res.status(403).json({ message: "Shooter access required" });
+
+        if (
+            req.user.role !==
+            "shooter"
+        ) {
+            return res.status(403).json({
+                message:
+                    "Shooter access required"
+            });
         }
 
-        const shooter = await User.findById(req.user.id, "name className attendance");
-        if (!shooter) return res.status(404).json({ message: "Shooter not found" });
 
-        const attendance = [...shooter.attendance].sort(
-            (first, second) => second.date.localeCompare(first.date)
-        );
+        const shooter =
+            await User.findById(
+                req.user.id,
+                "name className attendance"
+            );
 
-        res.json({ name: shooter.name, className: shooter.className, attendance });
+
+        if (!shooter) {
+            return res.status(404).json({
+                message:
+                    "Shooter not found"
+            });
+        }
+
+
+        const attendance =
+            [
+                ...(shooter.attendance || [])
+            ]
+                .sort(
+                    (first, second) =>
+                        second.date.localeCompare(
+                            first.date
+                        )
+                );
+
+
+        res.json({
+
+            name:
+                shooter.name,
+
+            className:
+                shooter.className,
+
+            attendance
+        });
+
+
     } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        res.status(500).json({
+            message:
+                err.message
+        });
     }
 };
 
+
+// =========================================================
+// GET MY DAILY SCORES
+// =========================================================
+
 exports.getMyDailyScores = async (req, res) => {
     try {
-        if (req.user.role !== "shooter") {
-            return res.status(403).json({ message: "Shooter access required" });
+
+        if (
+            req.user.role !==
+            "shooter"
+        ) {
+            return res.status(403).json({
+                message:
+                    "Shooter access required"
+            });
         }
 
-        const shooter = await User.findById(req.user.id, "name category dailyScores");
-        if (!shooter) return res.status(404).json({ message: "Shooter not found" });
 
-        const dailyScores = [...(shooter.dailyScores || [])].sort(
-            (first, second) => second.date.localeCompare(first.date)
-        );
+        const shooter =
+            await User.findById(
+                req.user.id,
+                "name category dailyScores"
+            );
 
-        res.json({ name: shooter.name, category: shooter.category, dailyScores });
+
+        if (!shooter) {
+            return res.status(404).json({
+                message:
+                    "Shooter not found"
+            });
+        }
+
+
+        const dailyScores =
+            [
+                ...(shooter.dailyScores || [])
+            ]
+                .sort(
+                    (first, second) =>
+                        second.date.localeCompare(
+                            first.date
+                        )
+                );
+
+
+        res.json({
+
+            name:
+                shooter.name,
+
+            category:
+                shooter.category,
+
+            dailyScores
+        });
+
+
     } catch (error) {
-        res.status(500).json({ message: error.message });
+
+        res.status(500).json({
+            message:
+                error.message
+        });
     }
 };
