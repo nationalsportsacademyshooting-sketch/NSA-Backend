@@ -3,9 +3,34 @@ const Booking = require("../models/booking");
 const bcrypt = require("bcrypt");
 
 
-// =====================================================
+// ============================================================
+// HELPER: BASE64 TO BUFFER
+// ============================================================
+
+function convertBase64ToBuffer(base64) {
+
+    if (!base64) {
+        return null;
+    }
+
+    if (
+        typeof base64 === "string" &&
+        base64.includes(",")
+    ) {
+        base64 =
+            base64.split(",")[1];
+    }
+
+    return Buffer.from(
+        base64,
+        "base64"
+    );
+}
+
+
+// ============================================================
 // CREATE SHOOTER
-// =====================================================
+// ============================================================
 
 exports.createShooter = async (req, res) => {
     try {
@@ -15,6 +40,7 @@ exports.createShooter = async (req, res) => {
                 message: "Access denied"
             });
         }
+
 
         const {
             name,
@@ -41,7 +67,8 @@ exports.createShooter = async (req, res) => {
 
         if (existingUser) {
             return res.status(400).json({
-                message: "Username already exists"
+                message:
+                    "Username already exists"
             });
         }
 
@@ -97,10 +124,12 @@ exports.createShooter = async (req, res) => {
 
 
         res.status(201).json({
+
             message:
                 "Shooter created successfully",
 
             shooter
+
         });
 
 
@@ -119,9 +148,9 @@ exports.createShooter = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // GET ALL APPROVED SHOOTERS
-// =====================================================
+// ============================================================
 
 exports.getShooters = async (req, res) => {
     try {
@@ -159,9 +188,9 @@ exports.getShooters = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // GET SINGLE APPROVED SHOOTER
-// =====================================================
+// ============================================================
 
 exports.getShooter = async (req, res) => {
     try {
@@ -211,9 +240,9 @@ exports.getShooter = async (req, res) => {
 };
 
 
-// =====================================================
-// ID APPROVAL - GET PENDING SHOOTERS
-// =====================================================
+// ============================================================
+// GET PENDING SHOOTERS
+// ============================================================
 
 exports.getPendingShooters = async (req, res) => {
     try {
@@ -251,9 +280,9 @@ exports.getPendingShooters = async (req, res) => {
 };
 
 
-// =====================================================
-// ID APPROVAL - GET COMPLETE SHOOTER DETAILS
-// =====================================================
+// ============================================================
+// GET COMPLETE SHOOTER DETAILS
+// ============================================================
 
 exports.getShooterDetails = async (req, res) => {
     try {
@@ -298,20 +327,10 @@ exports.getShooterDetails = async (req, res) => {
                         result.documents[key];
 
 
-                    if (
-                        doc.mimeType ||
-                        doc.originalName ||
-                        doc.size > 0
-                    ) {
-
-                        doc.available =
-                            true;
-
-                    } else {
-
-                        doc.available =
-                            false;
-                    }
+                    doc.available =
+                        !!doc.data ||
+                        !!doc.mimeType ||
+                        !!doc.originalName;
 
 
                     delete doc.data;
@@ -341,9 +360,9 @@ exports.getShooterDetails = async (req, res) => {
 };
 
 
-// =====================================================
-// ID APPROVAL - APPROVE SHOOTER
-// =====================================================
+// ============================================================
+// APPROVE SHOOTER
+// ============================================================
 
 exports.approveShooter = async (req, res) => {
     try {
@@ -388,17 +407,9 @@ exports.approveShooter = async (req, res) => {
         }
 
 
-        // =================================================
-        // SAVE SELECTED TIME SLOT
-        // =================================================
-
         shooter.assignedTimeSlot =
             assignedTimeSlot.trim();
 
-
-        // =================================================
-        // APPROVE SHOOTER
-        // =================================================
 
         shooter.status =
             "approved";
@@ -448,9 +459,9 @@ exports.approveShooter = async (req, res) => {
 };
 
 
-// =====================================================
-// ID APPROVAL - REJECT SHOOTER
-// =====================================================
+// ============================================================
+// REJECT SHOOTER
+// ============================================================
 
 exports.rejectShooter = async (req, res) => {
     try {
@@ -478,10 +489,7 @@ exports.rejectShooter = async (req, res) => {
                     req.params.id,
 
                 role:
-                    "shooter",
-
-                status:
-                    "pending"
+                    "shooter"
             });
 
 
@@ -505,7 +513,6 @@ exports.rejectShooter = async (req, res) => {
 
         shooter.approvedAt =
             null;
-
 
         shooter.activeSessionId =
             null;
@@ -549,19 +556,25 @@ exports.rejectShooter = async (req, res) => {
 };
 
 
-// =====================================================
-// ID APPROVAL - VIEW DOCUMENT
-// =====================================================
+// ============================================================
+// GET SHOOTER DOCUMENT
+// ============================================================
 
 exports.getShooterDocument = async (req, res) => {
     try {
 
         const allowedDocuments = [
+
             "passportPhoto",
+
             "identityProof",
+
             "birthCertificate",
+
             "affidavit",
+
             "schoolShooterId"
+
         ];
 
 
@@ -652,9 +665,9 @@ exports.getShooterDocument = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // UPDATE SHOOTER
-// =====================================================
+// ============================================================
 
 exports.updateShooter = async (req, res) => {
     try {
@@ -681,71 +694,469 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        shooter.name =
-            req.body.name;
-
-        shooter.username =
-            req.body.username;
-
-        shooter.category =
-            req.body.category;
-
-        shooter.event =
-            req.body.event;
-
-        shooter.age =
-            req.body.age;
-
-        shooter.mobile =
-            req.body.mobile;
-
-        shooter.email =
-            req.body.email;
-
-        shooter.dob =
-            req.body.dob ||
-            null;
-
-        shooter.gender =
-            req.body.gender;
-
-        shooter.className =
-            req.body.className;
-
-        shooter.assignedTimeSlot =
-            req.body.assignedTimeSlot;
-
+        // ====================================================
+        // PERSONAL DETAILS
+        // ====================================================
 
         if (
-            req.body.profilePhoto
+            req.body.firstName !== undefined
         ) {
 
-            shooter.profilePhoto =
-                req.body.profilePhoto;
+            shooter.firstName =
+                String(
+                    req.body.firstName
+                ).trim();
         }
 
 
         if (
-            req.body.password
+            req.body.lastName !== undefined
+        ) {
+
+            shooter.lastName =
+                String(
+                    req.body.lastName
+                ).trim();
+        }
+
+
+        if (
+            req.body.fatherName !== undefined
+        ) {
+
+            shooter.fatherName =
+                String(
+                    req.body.fatherName
+                ).trim();
+        }
+
+
+        if (
+            req.body.motherName !== undefined
+        ) {
+
+            shooter.motherName =
+                String(
+                    req.body.motherName
+                ).trim();
+        }
+
+
+        if (
+            req.body.gender !== undefined
+        ) {
+
+            shooter.gender =
+                String(
+                    req.body.gender
+                ).trim();
+        }
+
+
+        // ====================================================
+        // PHONE
+        // ====================================================
+
+        if (
+            req.body.phone !== undefined
+        ) {
+
+            const phone =
+                String(
+                    req.body.phone
+                ).trim();
+
+
+            shooter.phone =
+                phone;
+
+
+            // Keep old field working
+            shooter.mobile =
+                phone;
+        }
+
+
+        // ====================================================
+        // DATE OF BIRTH
+        // ====================================================
+
+        if (
+            req.body.dateOfBirth !== undefined
+        ) {
+
+            const dateOfBirth =
+                String(
+                    req.body.dateOfBirth
+                ).trim();
+
+
+            shooter.dateOfBirth =
+                dateOfBirth;
+
+
+            // Keep old field working
+            shooter.dob =
+                dateOfBirth;
+        }
+
+
+        // ====================================================
+        // EMAIL
+        // ====================================================
+
+        if (
+            req.body.email !== undefined
+        ) {
+
+            shooter.email =
+                String(
+                    req.body.email
+                )
+                .trim()
+                .toLowerCase();
+        }
+
+
+        // ====================================================
+        // CLASS
+        // ====================================================
+
+        if (
+            req.body.class !== undefined
+        ) {
+
+            const classValue =
+                String(
+                    req.body.class
+                ).trim();
+
+
+            // New form field -> existing DB field
+            shooter.className =
+                classValue;
+        }
+
+
+        // ====================================================
+        // SECTION
+        // ====================================================
+
+        if (
+            req.body.section !== undefined
+        ) {
+
+            shooter.section =
+                String(
+                    req.body.section
+                ).trim();
+        }
+
+
+        // ====================================================
+        // ADDRESS
+        // ====================================================
+
+        if (
+            req.body.address !== undefined
+        ) {
+
+            shooter.address =
+                String(
+                    req.body.address
+                ).trim();
+        }
+
+
+        // ====================================================
+        // SHOOTING DETAILS
+        // ====================================================
+
+        if (
+            req.body.event !== undefined
+        ) {
+
+            shooter.event =
+                String(
+                    req.body.event
+                ).trim();
+        }
+
+
+        if (
+            req.body.category !== undefined
+        ) {
+
+            shooter.category =
+                String(
+                    req.body.category
+                ).trim();
+        }
+
+
+        // ====================================================
+        // KEEP FULL NAME UPDATED
+        // ====================================================
+
+        const firstName =
+            shooter.firstName || "";
+
+        const lastName =
+            shooter.lastName || "";
+
+
+        shooter.name =
+            `${firstName} ${lastName}`
+                .trim();
+
+
+        // ====================================================
+        // USERNAME
+        // ====================================================
+
+        if (
+            req.body.username !== undefined
+        ) {
+
+            const username =
+                String(
+                    req.body.username
+                )
+                .trim()
+                .toLowerCase();
+
+
+            if (!username) {
+
+                return res.status(400).json({
+                    message:
+                        "Username is required"
+                });
+            }
+
+
+            const existingUser =
+                await User.findOne({
+
+                    username,
+
+                    _id: {
+                        $ne:
+                            shooter._id
+                    }
+
+                });
+
+
+            if (existingUser) {
+
+                return res.status(400).json({
+                    message:
+                        "Username already exists"
+                });
+            }
+
+
+            shooter.username =
+                username;
+        }
+
+
+        // ====================================================
+        // PASSWORD
+        // ====================================================
+        // Blank = keep existing password
+
+        if (
+            req.body.password &&
+            String(
+                req.body.password
+            ).trim()
         ) {
 
             shooter.password =
                 await bcrypt.hash(
-                    req.body.password,
+                    String(
+                        req.body.password
+                    ).trim(),
                     10
                 );
         }
 
 
+        // ====================================================
+        // INITIALIZE DOCUMENTS
+        // ====================================================
+
+        if (
+            !shooter.documents
+        ) {
+
+            shooter.documents = {};
+        }
+
+
+        // ====================================================
+        // PASSPORT PHOTO
+        // ====================================================
+
+        if (
+            req.body.passportPhoto &&
+            req.body.passportPhoto.data
+        ) {
+
+            shooter.documents.passportPhoto = {
+
+                originalName:
+                    req.body.passportPhoto.originalName ||
+                    "passportPhoto",
+
+                mimeType:
+                    req.body.passportPhoto.mimeType ||
+                    "image/jpeg",
+
+                size:
+                    Number(
+                        req.body.passportPhoto.size
+                    ) || 0,
+
+                data:
+                    convertBase64ToBuffer(
+                        req.body.passportPhoto.data
+                    )
+
+            };
+        }
+
+
+        // ====================================================
+        // OTHER DOCUMENTS
+        // ====================================================
+
+        const documentFields = [
+
+            "identityProof",
+
+            "birthCertificate",
+
+            "affidavit",
+
+            "schoolShooterId"
+
+        ];
+
+
+        for (
+            const documentName
+            of documentFields
+        ) {
+
+            const document =
+                req.body[
+                    documentName
+                ];
+
+
+            if (
+                document &&
+                document.data
+            ) {
+
+                shooter.documents[
+                    documentName
+                ] = {
+
+                    originalName:
+                        document.originalName ||
+                        documentName,
+
+                    mimeType:
+                        document.mimeType ||
+                        "application/octet-stream",
+
+                    size:
+                        Number(
+                            document.size
+                        ) || 0,
+
+                    data:
+                        convertBase64ToBuffer(
+                            document.data
+                        )
+
+                };
+            }
+        }
+
+
+        // ====================================================
+        // SAVE
+        // ====================================================
+
         await shooter.save();
 
+
+        // ====================================================
+        // RESPONSE
+        // ====================================================
 
         res.json({
 
             message:
                 "Shooter updated successfully",
 
-            shooter
+            shooter: {
+
+                _id:
+                    shooter._id,
+
+                shooterId:
+                    shooter.shooterId,
+
+                firstName:
+                    shooter.firstName,
+
+                lastName:
+                    shooter.lastName,
+
+                fatherName:
+                    shooter.fatherName,
+
+                motherName:
+                    shooter.motherName,
+
+                gender:
+                    shooter.gender,
+
+                phone:
+                    shooter.phone,
+
+                dateOfBirth:
+                    shooter.dateOfBirth,
+
+                email:
+                    shooter.email,
+
+                class:
+                    shooter.className,
+
+                section:
+                    shooter.section,
+
+                address:
+                    shooter.address,
+
+                event:
+                    shooter.event,
+
+                category:
+                    shooter.category,
+
+                username:
+                    shooter.username
+
+            }
+
         });
 
 
@@ -756,19 +1167,31 @@ exports.updateShooter = async (req, res) => {
             err
         );
 
+
+        if (
+            err.code === 11000
+        ) {
+
+            return res.status(400).json({
+                message:
+                    "Username already exists"
+            });
+        }
+
+
         res.status(500).json({
+
             message:
                 err.message
+
         });
     }
 };
 
 
-// =====================================================
+// ============================================================
 // DELETE SHOOTER
-// =====================================================
-// IMPORTANT:
-// Delete the shooter's lane bookings as well.
+// ============================================================
 
 exports.deleteShooter = async (req, res) => {
     try {
@@ -792,20 +1215,12 @@ exports.deleteShooter = async (req, res) => {
         }
 
 
-        // =================================================
-        // DELETE ALL LANE BOOKINGS OF THIS SHOOTER
-        // =================================================
-
         const deletedBookings =
             await Booking.deleteMany({
                 shooter:
                     shooter._id
             });
 
-
-        // =================================================
-        // DELETE SHOOTER
-        // =================================================
 
         await User.deleteOne({
             _id:
@@ -839,9 +1254,9 @@ exports.deleteShooter = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // ATTENDANCE - SAVE
-// =====================================================
+// ============================================================
 
 exports.saveAttendance = async (req, res) => {
     try {
@@ -899,11 +1314,10 @@ exports.saveAttendance = async (req, res) => {
 
         const shooters =
             await User.find({
-                _id:
-                    {
-                        $in:
-                            shooterIds
-                    },
+                _id: {
+                    $in:
+                        shooterIds
+                },
 
                 role:
                     "shooter",
@@ -975,6 +1389,7 @@ exports.saveAttendance = async (req, res) => {
 
                     });
                 }
+
             }
         );
 
@@ -988,8 +1403,10 @@ exports.saveAttendance = async (req, res) => {
 
 
         res.json({
+
             message:
                 "Attendance saved successfully"
+
         });
 
 
@@ -1008,9 +1425,9 @@ exports.saveAttendance = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // ATTENDANCE - GET
-// =====================================================
+// ============================================================
 
 exports.getAttendance = async (req, res) => {
     try {
@@ -1071,6 +1488,7 @@ exports.getAttendance = async (req, res) => {
                                 : "present"
 
                     };
+
                 }
             );
 
@@ -1095,9 +1513,9 @@ exports.getAttendance = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // DAILY SCORE - SAVE
-// =====================================================
+// ============================================================
 
 exports.saveDailyScore = async (req, res) => {
     try {
@@ -1236,6 +1654,7 @@ exports.saveDailyScore = async (req, res) => {
                 "Daily score saved successfully",
 
             total
+
         });
 
 
@@ -1254,9 +1673,9 @@ exports.saveDailyScore = async (req, res) => {
 };
 
 
-// =====================================================
+// ============================================================
 // DAILY SCORE - GET
-// =====================================================
+// ============================================================
 
 exports.getDailyScore = async (req, res) => {
     try {
@@ -1298,8 +1717,10 @@ exports.getDailyScore = async (req, res) => {
 
 
         res.json({
+
             score:
                 score || null
+
         });
 
 
