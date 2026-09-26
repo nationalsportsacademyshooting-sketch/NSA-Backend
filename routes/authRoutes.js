@@ -4,6 +4,7 @@ const multer = require("multer");
 const router = express.Router();
 
 const authController = require("../controllers/authController");
+const adminController = require("../controllers/adminController");
 const authMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
@@ -231,7 +232,7 @@ router.put(
     "/shooters/:id",
     authMiddleware,
     adminMiddleware,
-    authController.updateShooter
+    adminController.updateShooter
 );
 
 
@@ -243,7 +244,7 @@ router.delete(
     "/shooters/:id",
     authMiddleware,
     adminMiddleware,
-    authController.deleteShooter
+    adminController.deleteShooter
 );
 
 
