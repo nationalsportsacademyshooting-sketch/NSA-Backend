@@ -1,5 +1,7 @@
 const User = require("../models/User");
+const Booking = require("../models/booking");
 const bcrypt = require("bcrypt");
+
 
 // =====================================================
 // CREATE SHOOTER
@@ -7,6 +9,7 @@ const bcrypt = require("bcrypt");
 
 exports.createShooter = async (req, res) => {
     try {
+
         if (req.user.role !== "admin") {
             return res.status(403).json({
                 message: "Access denied"
@@ -29,7 +32,12 @@ exports.createShooter = async (req, res) => {
             profilePhoto
         } = req.body;
 
-        const existingUser = await User.findOne({ username });
+
+        const existingUser =
+            await User.findOne({
+                username
+            });
+
 
         if (existingUser) {
             return res.status(400).json({
@@ -37,48 +45,75 @@ exports.createShooter = async (req, res) => {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const shooter = new User({
-            name,
-            username,
-            password: hashedPassword,
+        const hashedPassword =
+            await bcrypt.hash(
+                password,
+                10
+            );
 
-            role: "shooter",
 
-            // Admin-created shooters are already approved.
-            status: "approved",
+        const shooter =
+            new User({
 
-            category,
-            event,
+                name,
 
-            age,
-            mobile,
-            email,
+                username,
 
-            dob,
+                password:
+                    hashedPassword,
 
-            gender,
+                role:
+                    "shooter",
 
-            className,
+                status:
+                    "approved",
 
-            assignedTimeSlot,
+                category,
 
-            profilePhoto: profilePhoto || ""
-        });
+                event,
+
+                age,
+
+                mobile,
+
+                email,
+
+                dob,
+
+                gender,
+
+                className,
+
+                assignedTimeSlot,
+
+                profilePhoto:
+                    profilePhoto || ""
+
+            });
+
 
         await shooter.save();
 
+
         res.status(201).json({
-            message: "Shooter created successfully",
+            message:
+                "Shooter created successfully",
+
             shooter
         });
 
+
     } catch (err) {
-        console.error("Create shooter error:", err);
+
+        console.error(
+            "Create shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -87,27 +122,38 @@ exports.createShooter = async (req, res) => {
 // =====================================================
 // GET ALL APPROVED SHOOTERS
 // =====================================================
-// Only approved shooters appear in Shooter Profile.
 
 exports.getShooters = async (req, res) => {
     try {
 
-        const shooters = await User.find(
-            {
-                role: "shooter",
-                status: "approved"
-            },
-            "-password -documents.data"
-        ).sort({ name: 1 });
+        const shooters =
+            await User.find(
+                {
+                    role: "shooter",
+                    status: "approved"
+                },
+                "-password -documents.data"
+            )
+            .sort({
+                name: 1
+            });
 
-        res.json(shooters);
+
+        res.json(
+            shooters
+        );
+
 
     } catch (err) {
 
-        console.error("Get shooters error:", err);
+        console.error(
+            "Get shooters error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -120,29 +166,46 @@ exports.getShooters = async (req, res) => {
 exports.getShooter = async (req, res) => {
     try {
 
-        const shooter = await User.findOne(
-            {
-                _id: req.params.id,
-                role: "shooter",
-                status: "approved"
-            },
-            "-password -documents.data"
-        );
+        const shooter =
+            await User.findOne(
+                {
+                    _id:
+                        req.params.id,
+
+                    role:
+                        "shooter",
+
+                    status:
+                        "approved"
+                },
+                "-password -documents.data"
+            );
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Shooter not found"
+                message:
+                    "Shooter not found"
             });
         }
 
-        res.json(shooter);
+
+        res.json(
+            shooter
+        );
+
 
     } catch (err) {
 
-        console.error("Get shooter error:", err);
+        console.error(
+            "Get shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -155,22 +218,34 @@ exports.getShooter = async (req, res) => {
 exports.getPendingShooters = async (req, res) => {
     try {
 
-        const shooters = await User.find(
-            {
-                role: "shooter",
-                status: "pending"
-            },
-            "-password -documents.data"
-        ).sort({ createdAt: -1 });
+        const shooters =
+            await User.find(
+                {
+                    role: "shooter",
+                    status: "pending"
+                },
+                "-password -documents.data"
+            )
+            .sort({
+                createdAt: -1
+            });
 
-        res.json(shooters);
+
+        res.json(
+            shooters
+        );
+
 
     } catch (err) {
 
-        console.error("Get pending shooters error:", err);
+        console.error(
+            "Get pending shooters error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -183,61 +258,84 @@ exports.getPendingShooters = async (req, res) => {
 exports.getShooterDetails = async (req, res) => {
     try {
 
-        const shooter = await User.findOne(
-            {
-                _id: req.params.id,
-                role: "shooter"
-            },
-            "-password"
-        );
+        const shooter =
+            await User.findOne(
+                {
+                    _id:
+                        req.params.id,
+
+                    role:
+                        "shooter"
+                },
+                "-password"
+            );
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Shooter application not found"
+                message:
+                    "Shooter application not found"
             });
         }
 
-        const result = shooter.toObject();
 
-        // ============================================
-        // DOCUMENT INFORMATION
-        // ============================================
+        const result =
+            shooter.toObject();
+
 
         if (result.documents) {
 
-            Object.keys(result.documents).forEach((key) => {
+            Object.keys(
+                result.documents
+            ).forEach(key => {
 
-                if (result.documents[key]) {
+                if (
+                    result.documents[key]
+                ) {
 
-                    const doc = result.documents[key];
+                    const doc =
+                        result.documents[key];
 
-                    // Tell frontend whether document exists.
+
                     if (
                         doc.mimeType ||
                         doc.originalName ||
                         doc.size > 0
                     ) {
-                        doc.available = true;
+
+                        doc.available =
+                            true;
+
                     } else {
-                        doc.available = false;
+
+                        doc.available =
+                            false;
                     }
 
-                    // Never send actual file buffer here.
+
                     delete doc.data;
                 }
 
             });
-
         }
 
-        res.json(result);
+
+        res.json(
+            result
+        );
+
 
     } catch (err) {
 
-        console.error("Get shooter details error:", err);
+        console.error(
+            "Get shooter details error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -250,40 +348,101 @@ exports.getShooterDetails = async (req, res) => {
 exports.approveShooter = async (req, res) => {
     try {
 
-        const shooter = await User.findOne({
-            _id: req.params.id,
-            role: "shooter",
-            status: "pending"
-        });
+        const {
+            assignedTimeSlot
+        } = req.body;
 
-        if (!shooter) {
-            return res.status(404).json({
-                message: "Pending shooter application not found"
+
+        if (
+            !assignedTimeSlot ||
+            typeof assignedTimeSlot !== "string" ||
+            !assignedTimeSlot.trim()
+        ) {
+
+            return res.status(400).json({
+                message:
+                    "Start Time and End Time are required"
             });
         }
 
-        shooter.status = "approved";
 
-        shooter.rejectionReason = "";
+        const shooter =
+            await User.findOne({
+                _id:
+                    req.params.id,
 
-        shooter.approvedAt = new Date();
+                role:
+                    "shooter",
 
-        shooter.rejectedAt = null;
+                status:
+                    "pending"
+            });
+
+
+        if (!shooter) {
+
+            return res.status(404).json({
+                message:
+                    "Pending shooter application not found"
+            });
+        }
+
+
+        // =================================================
+        // SAVE SELECTED TIME SLOT
+        // =================================================
+
+        shooter.assignedTimeSlot =
+            assignedTimeSlot.trim();
+
+
+        // =================================================
+        // APPROVE SHOOTER
+        // =================================================
+
+        shooter.status =
+            "approved";
+
+        shooter.rejectionReason =
+            "";
+
+        shooter.approvedAt =
+            new Date();
+
+        shooter.rejectedAt =
+            null;
+
 
         await shooter.save();
 
+
         res.json({
-            message: "Shooter approved successfully",
-            shooterId: shooter.shooterId,
-            status: shooter.status
+
+            message:
+                "Shooter approved successfully",
+
+            shooterId:
+                shooter.shooterId,
+
+            status:
+                shooter.status,
+
+            assignedTimeSlot:
+                shooter.assignedTimeSlot
+
         });
+
 
     } catch (err) {
 
-        console.error("Approve shooter error:", err);
+        console.error(
+            "Approve shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -296,53 +455,95 @@ exports.approveShooter = async (req, res) => {
 exports.rejectShooter = async (req, res) => {
     try {
 
-        const { reason } = req.body;
+        const {
+            reason
+        } = req.body;
 
-        if (!reason || !reason.trim()) {
+
+        if (
+            !reason ||
+            !reason.trim()
+        ) {
+
             return res.status(400).json({
-                message: "Rejection reason is required"
+                message:
+                    "Rejection reason is required"
             });
         }
 
-        const shooter = await User.findOne({
-            _id: req.params.id,
-            role: "shooter",
-            status: "pending"
-        });
+
+        const shooter =
+            await User.findOne({
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter",
+
+                status:
+                    "pending"
+            });
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Pending shooter application not found"
+                message:
+                    "Pending shooter application not found"
             });
         }
 
-        shooter.status = "rejected";
 
-        shooter.rejectionReason = reason.trim();
+        shooter.status =
+            "rejected";
 
-        shooter.rejectedAt = new Date();
+        shooter.rejectionReason =
+            reason.trim();
 
-        shooter.approvedAt = null;
+        shooter.rejectedAt =
+            new Date();
 
-        // Make sure no active session remains.
-        shooter.activeSessionId = null;
-        shooter.activeSessionExpiresAt = null;
+        shooter.approvedAt =
+            null;
+
+
+        shooter.activeSessionId =
+            null;
+
+        shooter.activeSessionExpiresAt =
+            null;
+
 
         await shooter.save();
 
+
         res.json({
-            message: "Shooter application rejected",
-            shooterId: shooter.shooterId,
-            status: shooter.status,
-            rejectionReason: shooter.rejectionReason
+
+            message:
+                "Shooter application rejected",
+
+            shooterId:
+                shooter.shooterId,
+
+            status:
+                shooter.status,
+
+            rejectionReason:
+                shooter.rejectionReason
+
         });
+
 
     } catch (err) {
 
-        console.error("Reject shooter error:", err);
+        console.error(
+            "Reject shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -363,52 +564,89 @@ exports.getShooterDocument = async (req, res) => {
             "schoolShooterId"
         ];
 
-        const documentName = req.params.document;
 
-        if (!allowedDocuments.includes(documentName)) {
+        const documentName =
+            req.params.document;
+
+
+        if (
+            !allowedDocuments.includes(
+                documentName
+            )
+        ) {
+
             return res.status(400).json({
-                message: "Invalid document"
+                message:
+                    "Invalid document"
             });
         }
 
-        const shooter = await User.findOne({
-            _id: req.params.id,
-            role: "shooter"
-        });
+
+        const shooter =
+            await User.findOne({
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter"
+            });
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Shooter not found"
+                message:
+                    "Shooter not found"
             });
         }
 
-        const document = shooter.documents?.[documentName];
 
-        if (!document || !document.data) {
+        const document =
+            shooter.documents?.[
+                documentName
+            ];
+
+
+        if (
+            !document ||
+            !document.data
+        ) {
+
             return res.status(404).json({
-                message: "Document not found"
+                message:
+                    "Document not found"
             });
         }
 
-        // Use mimeType because User.js stores mimeType.
+
         res.set(
             "Content-Type",
-            document.mimeType || "application/octet-stream"
+            document.mimeType ||
+            "application/octet-stream"
         );
+
 
         res.set(
             "Content-Disposition",
             `inline; filename="${document.originalName || documentName}"`
         );
 
-        res.send(document.data);
+
+        res.send(
+            document.data
+        );
+
 
     } catch (err) {
 
-        console.error("Get shooter document error:", err);
+        console.error(
+            "Get shooter document error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -421,21 +659,27 @@ exports.getShooterDocument = async (req, res) => {
 exports.updateShooter = async (req, res) => {
     try {
 
-        const shooter = await User.findOne({
-            _id: req.params.id,
-            role: "shooter",
-            status: "approved"
-        });
+        const shooter =
+            await User.findOne({
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter",
+
+                status:
+                    "approved"
+            });
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Shooter not found"
+                message:
+                    "Shooter not found"
             });
         }
 
-        // ==========================
-        // UPDATE BASIC DETAILS
-        // ==========================
 
         shooter.name =
             req.body.name;
@@ -459,7 +703,8 @@ exports.updateShooter = async (req, res) => {
             req.body.email;
 
         shooter.dob =
-            req.body.dob || null;
+            req.body.dob ||
+            null;
 
         shooter.gender =
             req.body.gender;
@@ -470,21 +715,19 @@ exports.updateShooter = async (req, res) => {
         shooter.assignedTimeSlot =
             req.body.assignedTimeSlot;
 
-        // ==========================
-        // UPDATE PHOTO
-        // ==========================
 
-        if (req.body.profilePhoto) {
+        if (
+            req.body.profilePhoto
+        ) {
 
             shooter.profilePhoto =
                 req.body.profilePhoto;
         }
 
-        // ==========================
-        // UPDATE PASSWORD
-        // ==========================
 
-        if (req.body.password) {
+        if (
+            req.body.password
+        ) {
 
             shooter.password =
                 await bcrypt.hash(
@@ -493,19 +736,29 @@ exports.updateShooter = async (req, res) => {
                 );
         }
 
+
         await shooter.save();
 
+
         res.json({
-            message: "Shooter updated successfully",
+
+            message:
+                "Shooter updated successfully",
+
             shooter
         });
 
+
     } catch (err) {
 
-        console.error("Update shooter error:", err);
+        console.error(
+            "Update shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -514,31 +767,73 @@ exports.updateShooter = async (req, res) => {
 // =====================================================
 // DELETE SHOOTER
 // =====================================================
+// IMPORTANT:
+// Delete the shooter's lane bookings as well.
 
 exports.deleteShooter = async (req, res) => {
     try {
 
-        const shooter = await User.findOneAndDelete({
-            _id: req.params.id,
-            role: "shooter"
-        });
+        const shooter =
+            await User.findOne({
+                _id:
+                    req.params.id,
+
+                role:
+                    "shooter"
+            });
+
 
         if (!shooter) {
+
             return res.status(404).json({
-                message: "Shooter not found"
+                message:
+                    "Shooter not found"
             });
         }
 
-        res.json({
-            message: "Shooter profile deleted successfully"
+
+        // =================================================
+        // DELETE ALL LANE BOOKINGS OF THIS SHOOTER
+        // =================================================
+
+        const deletedBookings =
+            await Booking.deleteMany({
+                shooter:
+                    shooter._id
+            });
+
+
+        // =================================================
+        // DELETE SHOOTER
+        // =================================================
+
+        await User.deleteOne({
+            _id:
+                shooter._id
         });
+
+
+        res.json({
+
+            message:
+                "Shooter profile and all lane bookings deleted successfully",
+
+            deletedBookings:
+                deletedBookings.deletedCount || 0
+
+        });
+
 
     } catch (err) {
 
-        console.error("Delete shooter error:", err);
+        console.error(
+            "Delete shooter error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -557,106 +852,157 @@ exports.saveAttendance = async (req, res) => {
             records
         } = req.body;
 
+
         if (
             !date ||
             !className ||
             !Array.isArray(records)
         ) {
+
             return res.status(400).json({
                 message:
                     "Date, class and attendance records are required"
             });
         }
 
+
         const validStatuses =
-            new Set(["present", "absent"]);
+            new Set([
+                "present",
+                "absent"
+            ]);
+
 
         if (
-            records.some(record =>
-                !record.shooterId ||
-                !validStatuses.has(record.status)
+            records.some(
+                record =>
+                    !record.shooterId ||
+                    !validStatuses.has(
+                        record.status
+                    )
             )
         ) {
+
             return res.status(400).json({
                 message:
                     "Each attendance record needs a shooter and valid status"
             });
         }
 
+
         const shooterIds =
-            records.map(record =>
-                record.shooterId
+            records.map(
+                record =>
+                    record.shooterId
             );
+
 
         const shooters =
             await User.find({
-                _id: { $in: shooterIds },
-                role: "shooter",
-                status: "approved",
+                _id:
+                    {
+                        $in:
+                            shooterIds
+                    },
+
+                role:
+                    "shooter",
+
+                status:
+                    "approved",
+
                 className
             });
 
+
         if (
-            shooters.length !== shooterIds.length
+            shooters.length !==
+            shooterIds.length
         ) {
+
             return res.status(400).json({
                 message:
                     "One or more shooters do not belong to the selected class"
             });
         }
 
+
         const statusByShooterId =
             new Map(
-                records.map(record => [
-                    String(record.shooterId),
-                    record.status
-                ])
+                records.map(
+                    record => [
+                        String(
+                            record.shooterId
+                        ),
+                        record.status
+                    ]
+                )
             );
 
-        shooters.forEach(shooter => {
 
-            const existingRecord =
-                shooter.attendance.find(
-                    record =>
-                        record.date === date
-                );
+        shooters.forEach(
+            shooter => {
 
-            if (existingRecord) {
-
-                existingRecord.status =
-                    statusByShooterId.get(
-                        String(shooter._id)
+                const existingRecord =
+                    shooter.attendance.find(
+                        record =>
+                            record.date ===
+                            date
                     );
 
-            } else {
 
-                shooter.attendance.push({
-                    date,
-                    status:
+                if (existingRecord) {
+
+                    existingRecord.status =
                         statusByShooterId.get(
-                            String(shooter._id)
-                        )
-                });
+                            String(
+                                shooter._id
+                            )
+                        );
+
+                } else {
+
+                    shooter.attendance.push({
+
+                        date,
+
+                        status:
+                            statusByShooterId.get(
+                                String(
+                                    shooter._id
+                                )
+                            )
+
+                    });
+                }
             }
-        });
+        );
+
 
         await Promise.all(
-            shooters.map(shooter =>
-                shooter.save()
+            shooters.map(
+                shooter =>
+                    shooter.save()
             )
         );
+
 
         res.json({
             message:
                 "Attendance saved successfully"
         });
 
+
     } catch (err) {
 
-        console.error("Save attendance error:", err);
+        console.error(
+            "Save attendance error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -674,51 +1020,76 @@ exports.getAttendance = async (req, res) => {
             className
         } = req.query;
 
-        if (!date || !className) {
+
+        if (
+            !date ||
+            !className
+        ) {
+
             return res.status(400).json({
                 message:
                     "Date and class are required"
             });
         }
 
+
         const shooters =
             await User.find(
                 {
-                    role: "shooter",
-                    status: "approved",
+                    role:
+                        "shooter",
+
+                    status:
+                        "approved",
+
                     className
                 },
                 "attendance"
             );
 
+
         const records =
-            shooters.map(shooter => {
+            shooters.map(
+                shooter => {
 
-                const entry =
-                    shooter.attendance.find(
-                        record =>
-                            record.date === date
-                    );
+                    const entry =
+                        shooter.attendance.find(
+                            record =>
+                                record.date ===
+                                date
+                        );
 
-                return {
-                    shooterId: shooter._id,
-                    status:
-                        entry
-                            ? entry.status
-                            : "present"
-                };
-            });
+
+                    return {
+
+                        shooterId:
+                            shooter._id,
+
+                        status:
+                            entry
+                                ? entry.status
+                                : "present"
+
+                    };
+                }
+            );
+
 
         res.json({
             records
         });
 
+
     } catch (err) {
 
-        console.error("Get attendance error:", err);
+        console.error(
+            "Get attendance error:",
+            err
+        );
 
         res.status(500).json({
-            message: err.message
+            message:
+                err.message
         });
     }
 };
@@ -737,52 +1108,74 @@ exports.saveDailyScore = async (req, res) => {
             series
         } = req.body;
 
+
         if (
             !shooterId ||
             !date ||
             !Array.isArray(series)
         ) {
+
             return res.status(400).json({
                 message:
                     "Shooter, date and series scores are required"
             });
         }
 
+
         const shooter =
             await User.findOne({
-                _id: shooterId,
-                role: "shooter",
-                status: "approved"
+                _id:
+                    shooterId,
+
+                role:
+                    "shooter",
+
+                status:
+                    "approved"
             });
 
+
         if (!shooter) {
+
             return res.status(404).json({
                 message:
                     "Shooter not found"
             });
         }
 
+
         const expectedSeries =
             shooter.category === "ISSF"
                 ? 6
                 : 4;
 
+
         if (
-            series.length !== expectedSeries ||
-            series.some(score =>
-                !Number.isFinite(Number(score)) ||
-                Number(score) < 0 ||
-                Number(score) > 100
+            series.length !==
+                expectedSeries ||
+
+            series.some(
+                score =>
+                    !Number.isFinite(
+                        Number(score)
+                    ) ||
+                    Number(score) < 0 ||
+                    Number(score) > 100
             )
         ) {
+
             return res.status(400).json({
                 message:
                     `Enter ${expectedSeries} series scores between 0 and 100`
             });
         }
 
+
         const cleanSeries =
-            series.map(Number);
+            series.map(
+                Number
+            );
+
 
         const total =
             cleanSeries.reduce(
@@ -791,15 +1184,25 @@ exports.saveDailyScore = async (req, res) => {
                 0
             );
 
-        if (!Array.isArray(shooter.dailyScores)) {
-            shooter.dailyScores = [];
+
+        if (
+            !Array.isArray(
+                shooter.dailyScores
+            )
+        ) {
+
+            shooter.dailyScores =
+                [];
         }
+
 
         const existingScore =
             shooter.dailyScores.find(
                 score =>
-                    score.date === date
+                    score.date ===
+                    date
             );
+
 
         if (existingScore) {
 
@@ -812,26 +1215,40 @@ exports.saveDailyScore = async (req, res) => {
         } else {
 
             shooter.dailyScores.push({
+
                 date,
-                series: cleanSeries,
+
+                series:
+                    cleanSeries,
+
                 total
+
             });
         }
 
+
         await shooter.save();
 
+
         res.json({
+
             message:
                 "Daily score saved successfully",
+
             total
         });
 
+
     } catch (error) {
 
-        console.error("Save daily score error:", error);
+        console.error(
+            "Save daily score error:",
+            error
+        );
 
         res.status(500).json({
-            message: error.message
+            message:
+                error.message
         });
     }
 };
@@ -847,38 +1264,55 @@ exports.getDailyScore = async (req, res) => {
         const shooter =
             await User.findOne(
                 {
-                    _id: req.params.shooterId,
-                    role: "shooter",
-                    status: "approved"
+                    _id:
+                        req.params.shooterId,
+
+                    role:
+                        "shooter",
+
+                    status:
+                        "approved"
                 },
                 "dailyScores"
             );
 
+
         if (!shooter) {
+
             return res.status(404).json({
                 message:
                     "Shooter not found"
             });
         }
 
+
         const score =
-            (shooter.dailyScores || [])
-                .find(
-                    item =>
-                        item.date ===
-                        req.query.date
-                );
+            (
+                shooter.dailyScores ||
+                []
+            ).find(
+                item =>
+                    item.date ===
+                    req.query.date
+            );
+
 
         res.json({
-            score: score || null
+            score:
+                score || null
         });
+
 
     } catch (error) {
 
-        console.error("Get daily score error:", error);
+        console.error(
+            "Get daily score error:",
+            error
+        );
 
         res.status(500).json({
-            message: error.message
+            message:
+                error.message
         });
     }
 };
