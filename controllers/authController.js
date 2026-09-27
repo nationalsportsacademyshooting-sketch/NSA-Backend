@@ -1040,10 +1040,38 @@ exports.getMyProfile = async (req, res) => {
 
 
         // =====================================================
+        // PROFILE PHOTO
+        // =====================================================
+        // Registration stores the original passport photo in:
+        // documents.passportPhoto.data
+        //
+        // Convert it to a data URL for the profile page.
+
+        let profilePhoto =
+            user.profilePhoto || "";
+
+
+        if (
+            !profilePhoto &&
+            user.documents?.passportPhoto?.data
+        ) {
+
+            const photo =
+                user.documents.passportPhoto;
+
+
+            profilePhoto =
+                `data:${photo.mimeType || "image/jpeg"};base64,${Buffer.from(
+                    photo.data
+                ).toString("base64")}`;
+        }
+
+
+        // =====================================================
         // DOCUMENT INFORMATION
         // =====================================================
-        // Actual binary document data is NOT sent.
-        // Only availability/file information is returned.
+        // Binary document data is NOT sent.
+        // Only file information is returned.
 
         const documents = {
 
@@ -1175,7 +1203,7 @@ exports.getMyProfile = async (req, res) => {
                 user.assignedTimeSlot || "",
 
             profilePhoto:
-                user.profilePhoto || "",
+                profilePhoto,
 
             documents:
                 documents,
@@ -1201,7 +1229,6 @@ exports.getMyProfile = async (req, res) => {
         });
     }
 };
-
 
 // =========================================================
 // UPDATE MY PROFILE
