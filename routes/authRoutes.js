@@ -118,6 +118,12 @@ router.put(
     authController.updateMyProfile
 );
 
+router.get(
+    "/my-profile/documents/:document",
+    authMiddleware,
+    authController.getMyProfileDocument
+);
+
 
 /* =========================================================
    SHOOTER PERSONAL DATA

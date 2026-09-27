@@ -2144,3 +2144,55 @@ exports.getMyDailyScores = async (req, res) => {
         });
     }
 };
+
+exports.getMyProfileDocument = async (req, res) => {
+    try {
+        const allowedDocuments = {
+            identityProof: "identityProof",
+            birthCertificate: "birthCertificate",
+            affidavit: "affidavit",
+            schoolShooterId: "schoolShooterId"
+        };
+
+        const documentName = allowedDocuments[req.params.document];
+
+        if (!documentName) {
+            return res.status(400).json({
+                message: "Invalid document"
+            });
+        }
+
+        const user = await User.findOne({
+            _id: req.user.id,
+            role: "shooter"
+        }).select(`documents.${documentName}`);
+
+        if (!user || !user.documents || !user.documents[documentName]) {
+            return res.status(404).json({
+                message: "Document not found"
+            });
+        }
+
+        const document = user.documents[documentName];
+
+        if (!document.data) {
+            return res.status(404).json({
+                message: "Document not uploaded"
+            });
+        }
+
+        res.set({
+            "Content-Type": document.mimeType || "application/pdf",
+            "Content-Disposition": `inline; filename="${document.originalName || documentName}"`
+        });
+
+        return res.send(document.data);
+
+    } catch (error) {
+        console.error("Get my profile document error:", error);
+
+        return res.status(500).json({
+            message: "Failed to load document"
+        });
+    }
+};
