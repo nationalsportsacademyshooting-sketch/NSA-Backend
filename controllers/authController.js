@@ -1024,12 +1024,11 @@ exports.logout = async (req, res) => {
 // =========================================================
 // GET MY PROFILE
 // =========================================================
-// IMPORTANT:
-// Profile information and document binary data are kept
-// separate. This prevents large document buffers from
-// breaking the profile API response.
+// Profile information and document metadata are returned
+// separately from binary document data.
 //
-// Profile photo is loaded through /my-profile/photo.
+// Profile photo is loaded through:
+// /api/auth/my-profile/photo
 
 exports.getMyProfile = async (req, res) => {
     try {
@@ -1223,10 +1222,6 @@ exports.getMyProfile = async (req, res) => {
             assignedTimeSlot:
                 user.assignedTimeSlot || "",
 
-            /*
-             * Photo is intentionally not placed in this
-             * response. The frontend loads it separately.
-             */
             profilePhoto:
                 "",
 
@@ -1268,21 +1263,29 @@ exports.getMyProfile = async (req, res) => {
 // =========================================================
 // GET MY PROFILE PHOTO
 // =========================================================
-// Loads passport photo without putting binary data into
-// the normal profile response.
+// The passport photo uploaded during registration is stored
+// inside documents.passportPhoto.data.
+//
+// This endpoint returns only the image binary and is protected
+// by the normal authentication middleware.
 
 exports.getMyProfilePhoto = async (req, res) => {
     try {
 
         const user =
-            await User.findById(
-                req.user.id
-            )
-                .select(
-                    "profilePhoto " +
-                    "documents.passportPhoto " +
-                    "+documents.passportPhoto.data"
-                );
+            await User.findOne({
+                _id:
+                    req.user.id,
+
+                role:
+                    "shooter"
+
+            }).select(
+                "profilePhoto " +
+                "+documents.passportPhoto.data " +
+                "documents.passportPhoto.mimeType " +
+                "documents.passportPhoto.originalName"
+            );
 
 
         if (!user) {
@@ -1318,21 +1321,26 @@ exports.getMyProfilePhoto = async (req, res) => {
                     );
 
 
-                res.set({
-                    "Content-Type":
-                        match[1],
+                if (
+                    imageBuffer.length > 0
+                ) {
 
-                    "Cache-Control":
-                        "no-store",
+                    res.set({
+                        "Content-Type":
+                            match[1],
 
-                    "Content-Length":
-                        imageBuffer.length
-                });
+                        "Cache-Control":
+                            "no-store",
+
+                        "Content-Length":
+                            imageBuffer.length
+                    });
 
 
-                return res.send(
-                    imageBuffer
-                );
+                    return res.send(
+                        imageBuffer
+                    );
+                }
             }
         }
 
@@ -1357,6 +1365,10 @@ exports.getMyProfilePhoto = async (req, res) => {
             });
         }
 
+
+        // =====================================================
+        // CONVERT STORED DATA TO BUFFER
+        // =====================================================
 
         let photoBuffer;
 
@@ -1416,10 +1428,20 @@ exports.getMyProfilePhoto = async (req, res) => {
         }
 
 
+        // =====================================================
+        // SEND IMAGE
+        // =====================================================
+
         res.set({
             "Content-Type":
                 photo.mimeType ||
                 "image/jpeg",
+
+            "Content-Disposition":
+                `inline; filename="${String(
+                    photo.originalName ||
+                    "profile-photo"
+                ).replace(/"/g, "")}"`,
 
             "Cache-Control":
                 "no-store",

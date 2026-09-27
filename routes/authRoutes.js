@@ -112,11 +112,24 @@ router.get(
     authController.getMyProfile
 );
 
+
+/*
+   Shooter profile photo
+*/
+
+router.get(
+    "/my-profile/photo",
+    authMiddleware,
+    authController.getMyProfilePhoto
+);
+
+
 router.put(
     "/my-profile",
     authMiddleware,
     authController.updateMyProfile
 );
+
 
 router.get(
     "/my-profile/documents/:document",
@@ -134,6 +147,7 @@ router.get(
     authMiddleware,
     authController.getMyAttendance
 );
+
 
 router.get(
     "/my-daily-scores",
@@ -259,6 +273,7 @@ router.delete(
    ========================================================= */
 
 router.use((err, req, res, next) => {
+
     if (err instanceof multer.MulterError) {
 
         if (err.code === "LIMIT_FILE_SIZE") {
