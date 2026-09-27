@@ -457,8 +457,6 @@ exports.register = async (req, res) => {
                 role:
                     "shooter",
 
-                // IMPORTANT:
-                // New registrations require admin approval.
                 status:
                     "pending",
 
@@ -498,8 +496,6 @@ exports.register = async (req, res) => {
                 section:
                     String(section).trim(),
 
-                // Store the original YYYY-MM-DD string
-                // because User.js uses String for DOB.
                 dob:
                     dobString,
 
@@ -925,7 +921,6 @@ exports.login = async (req, res) => {
             );
 
 
-        // New login replaces previous session.
         user.activeSessionId =
             sessionId;
 
@@ -942,7 +937,6 @@ exports.login = async (req, res) => {
                 "Login Successful",
 
             token:
-
                 token,
 
             user:
@@ -1033,7 +1027,7 @@ exports.getMyProfile = async (req, res) => {
                     "-lockUntil " +
                     "-activeSessionId " +
                     "-activeSessionExpiresAt " +
-                    "-documents"
+                    "-documents.data"
                 );
 
 
@@ -1044,6 +1038,76 @@ exports.getMyProfile = async (req, res) => {
             });
         }
 
+
+        // =====================================================
+        // DOCUMENT INFORMATION
+        // =====================================================
+        // Actual binary document data is NOT sent.
+        // Only availability/file information is returned.
+
+        const documents = {
+
+            identityProof:
+                user.documents?.identityProof
+                    ? {
+                        mimeType:
+                            user.documents.identityProof.mimeType,
+
+                        originalName:
+                            user.documents.identityProof.originalName,
+
+                        size:
+                            user.documents.identityProof.size
+                    }
+                    : null,
+
+            birthCertificate:
+                user.documents?.birthCertificate
+                    ? {
+                        mimeType:
+                            user.documents.birthCertificate.mimeType,
+
+                        originalName:
+                            user.documents.birthCertificate.originalName,
+
+                        size:
+                            user.documents.birthCertificate.size
+                    }
+                    : null,
+
+            affidavit:
+                user.documents?.affidavit
+                    ? {
+                        mimeType:
+                            user.documents.affidavit.mimeType,
+
+                        originalName:
+                            user.documents.affidavit.originalName,
+
+                        size:
+                            user.documents.affidavit.size
+                    }
+                    : null,
+
+            schoolShooterId:
+                user.documents?.schoolShooterId
+                    ? {
+                        mimeType:
+                            user.documents.schoolShooterId.mimeType,
+
+                        originalName:
+                            user.documents.schoolShooterId.originalName,
+
+                        size:
+                            user.documents.schoolShooterId.size
+                    }
+                    : null
+        };
+
+
+        // =====================================================
+        // PROFILE RESPONSE
+        // =====================================================
 
         res.status(200).json({
 
@@ -1112,6 +1176,9 @@ exports.getMyProfile = async (req, res) => {
 
             profilePhoto:
                 user.profilePhoto || "",
+
+            documents:
+                documents,
 
             status:
                 user.status || "",
