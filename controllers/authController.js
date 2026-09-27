@@ -111,8 +111,7 @@ exports.register = async (req, res) => {
         // =====================================================
 
         const normalizedPhone =
-            String(phone)
-                .trim();
+            String(phone).trim();
 
         if (
             !/^[6-9]\d{9}$/.test(
@@ -197,12 +196,10 @@ exports.register = async (req, res) => {
 
         // =====================================================
         // DATE OF BIRTH
-        // Expected: YYYY-MM-DD
         // =====================================================
 
         const dobString =
-            String(dateOfBirth)
-                .trim();
+            String(dateOfBirth).trim();
 
         if (
             !/^\d{4}-\d{2}-\d{2}$/.test(
@@ -215,11 +212,13 @@ exports.register = async (req, res) => {
             });
         }
 
+
         const [
             year,
             month,
             day
         ] = dobString.split("-");
+
 
         const dobDate =
             new Date(
@@ -227,6 +226,7 @@ exports.register = async (req, res) => {
                 Number(month) - 1,
                 Number(day)
             );
+
 
         if (
             Number.isNaN(
@@ -248,7 +248,6 @@ exports.register = async (req, res) => {
 
         // =====================================================
         // SHOOTER ID
-        // NSA + DDMMYYYY
         // =====================================================
 
         const shooterId =
@@ -264,6 +263,7 @@ exports.register = async (req, res) => {
                 username:
                     normalizedUsername
             });
+
 
         if (existingUser) {
             return res.status(400).json({
@@ -282,6 +282,7 @@ exports.register = async (req, res) => {
                 shooterId
             });
 
+
         if (existingShooterId) {
             return res.status(400).json({
                 message:
@@ -296,6 +297,7 @@ exports.register = async (req, res) => {
 
         const files =
             req.files || {};
+
 
         const passportPhoto =
             files.passportPhoto?.[0];
@@ -324,6 +326,7 @@ exports.register = async (req, res) => {
             });
         }
 
+
         if (!identityProof) {
             return res.status(400).json({
                 message:
@@ -331,12 +334,14 @@ exports.register = async (req, res) => {
             });
         }
 
+
         if (!birthCertificate) {
             return res.status(400).json({
                 message:
                     "Birth Certificate is required."
             });
         }
+
 
         if (!schoolShooterId) {
             return res.status(400).json({
@@ -388,6 +393,7 @@ exports.register = async (req, res) => {
             "image/png",
             "application/pdf"
         ];
+
 
         for (
             const file of uploadedFiles
@@ -636,10 +642,6 @@ exports.register = async (req, res) => {
         );
 
 
-        // =====================================================
-        // DUPLICATE KEY
-        // =====================================================
-
         if (
             err &&
             err.code === 11000
@@ -653,6 +655,7 @@ exports.register = async (req, res) => {
                         "An account with this email already exists."
                 });
             }
+
 
             if (
                 err.keyPattern?.shooterId
@@ -676,7 +679,6 @@ exports.register = async (req, res) => {
 
 // =========================================================
 // LOGIN
-// One active session per account
 // =========================================================
 
 exports.login = async (req, res) => {
@@ -688,6 +690,7 @@ exports.login = async (req, res) => {
             )
                 .trim()
                 .toLowerCase();
+
 
         const password =
             String(
@@ -730,11 +733,13 @@ exports.login = async (req, res) => {
             user.failedAttempts = 0;
         }
 
+
         if (
             user.activeSessionId === undefined
         ) {
             user.activeSessionId = null;
         }
+
 
         if (
             user.activeSessionExpiresAt === undefined
@@ -759,6 +764,7 @@ exports.login = async (req, res) => {
                         new Date()
                     ) / 1000
                 );
+
 
             return res.status(429).json({
 
@@ -802,6 +808,7 @@ exports.login = async (req, res) => {
             user.failedAttempts =
                 (user.failedAttempts || 0) + 1;
 
+
             let lockSeconds = 0;
 
 
@@ -821,6 +828,7 @@ exports.login = async (req, res) => {
                         )
                     );
 
+
                 user.lockUntil =
                     new Date(
                         Date.now() +
@@ -835,6 +843,7 @@ exports.login = async (req, res) => {
             if (
                 user.failedAttempts > 5
             ) {
+
                 return res.status(429).json({
 
                     message:
@@ -954,6 +963,7 @@ exports.login = async (req, res) => {
             err
         );
 
+
         return res.status(500).json({
             message:
                 err.message
@@ -990,6 +1000,7 @@ exports.logout = async (req, res) => {
             user.activeSessionExpiresAt =
                 null;
 
+
             await user.save();
         }
 
@@ -1013,6 +1024,12 @@ exports.logout = async (req, res) => {
 // =========================================================
 // GET MY PROFILE
 // =========================================================
+// IMPORTANT:
+// Profile information and document binary data are kept
+// separate. This prevents large document buffers from
+// breaking the profile API response.
+//
+// Profile photo is loaded through /my-profile/photo.
 
 exports.getMyProfile = async (req, res) => {
     try {
@@ -1027,8 +1044,9 @@ exports.getMyProfile = async (req, res) => {
                     "-lockUntil " +
                     "-activeSessionId " +
                     "-activeSessionExpiresAt " +
-                    "+documents.passportPhoto.data"
-                );
+                    "-documents"
+                )
+                .lean();
 
 
         if (!user) {
@@ -1040,110 +1058,84 @@ exports.getMyProfile = async (req, res) => {
 
 
         // =====================================================
-        // PROFILE PHOTO
+        // GET DOCUMENT METADATA SEPARATELY
         // =====================================================
 
-        let profilePhoto = "";
+        const documentUser =
+            await User.findById(
+                req.user.id
+            )
+                .select(
+                    "documents.identityProof " +
+                    "documents.birthCertificate " +
+                    "documents.affidavit " +
+                    "documents.schoolShooterId"
+                )
+                .lean();
 
 
-        // First check the profilePhoto field
-        if (
-            user.profilePhoto &&
-            typeof user.profilePhoto === "string" &&
-            user.profilePhoto.trim() !== ""
-        ) {
+        const storedDocuments =
+            documentUser?.documents || {};
 
-            profilePhoto =
-                user.profilePhoto;
-
-        }
-
-
-        // If profilePhoto is empty,
-        // use the passport photo uploaded during registration.
-
-        if (
-            !profilePhoto &&
-            user.documents?.passportPhoto?.data
-        ) {
-
-            const photo =
-                user.documents.passportPhoto;
-
-
-            const buffer =
-                Buffer.from(
-                    photo.data
-                );
-
-
-            profilePhoto =
-                `data:${photo.mimeType || "image/jpeg"};base64,${buffer.toString("base64")}`;
-        }
-
-
-        // =====================================================
-        // DOCUMENT INFORMATION
-        // =====================================================
 
         const documents = {
 
             identityProof:
-                user.documents?.identityProof
+                storedDocuments.identityProof
                     ? {
                         mimeType:
-                            user.documents.identityProof.mimeType,
+                            storedDocuments.identityProof.mimeType || "",
 
                         originalName:
-                            user.documents.identityProof.originalName,
+                            storedDocuments.identityProof.originalName || "",
 
                         size:
-                            user.documents.identityProof.size
+                            storedDocuments.identityProof.size || 0
                     }
                     : null,
 
 
             birthCertificate:
-                user.documents?.birthCertificate
+                storedDocuments.birthCertificate
                     ? {
                         mimeType:
-                            user.documents.birthCertificate.mimeType,
+                            storedDocuments.birthCertificate.mimeType || "",
 
                         originalName:
-                            user.documents.birthCertificate.originalName,
+                            storedDocuments.birthCertificate.originalName || "",
 
                         size:
-                            user.documents.birthCertificate.size
+                            storedDocuments.birthCertificate.size || 0
                     }
                     : null,
 
 
             affidavit:
-                user.documents?.affidavit
+                storedDocuments.affidavit
                     ? {
                         mimeType:
-                            user.documents.affidavit.mimeType,
+                            storedDocuments.affidavit.mimeType || "",
 
                         originalName:
-                            user.documents.affidavit.originalName,
+                            storedDocuments.affidavit.originalName || "",
 
                         size:
-                            user.documents.affidavit.size
+                            storedDocuments.affidavit.size || 0
                     }
                     : null,
 
 
             schoolShooterId:
-                user.documents?.schoolShooterId
+                storedDocuments.schoolShooterId
                     ? {
                         mimeType:
-                            user.documents.schoolShooterId.mimeType,
+                            storedDocuments.schoolShooterId.mimeType || "",
 
                         originalName:
-                            user.documents.schoolShooterId.originalName,
+                            storedDocuments.schoolShooterId.originalName || "",
 
                         size:
-                            user.documents.schoolShooterId.size
+                            storedDocuments.schoolShooterId.size || 0
                     }
                     : null
         };
@@ -1154,6 +1146,9 @@ exports.getMyProfile = async (req, res) => {
         // =====================================================
 
         return res.status(200).json({
+
+            success:
+                true,
 
             id:
                 user._id,
@@ -1183,16 +1178,24 @@ exports.getMyProfile = async (req, res) => {
                 user.mobile || "",
 
             phone:
-                user.phone || "",
+                user.phone ||
+                user.mobile ||
+                "",
 
             email:
-                user.email || "",
+                user.email ||
+                user.username ||
+                "",
 
             dob:
-                user.dob || "",
+                user.dob ||
+                user.dateOfBirth ||
+                "",
 
             dateOfBirth:
-                user.dateOfBirth || "",
+                user.dateOfBirth ||
+                user.dob ||
+                "",
 
             age:
                 user.age ?? "",
@@ -1207,7 +1210,9 @@ exports.getMyProfile = async (req, res) => {
                 user.gender || "",
 
             className:
-                user.className || "",
+                user.className ||
+                user.class ||
+                "",
 
             section:
                 user.section || "",
@@ -1218,9 +1223,12 @@ exports.getMyProfile = async (req, res) => {
             assignedTimeSlot:
                 user.assignedTimeSlot || "",
 
-            // IMPORTANT
+            /*
+             * Photo is intentionally not placed in this
+             * response. The frontend loads it separately.
+             */
             profilePhoto:
-                profilePhoto,
+                "",
 
             documents:
                 documents,
@@ -1236,17 +1244,217 @@ exports.getMyProfile = async (req, res) => {
     } catch (error) {
 
         console.error(
-            "Get profile error:",
+            "GET MY PROFILE ERROR:",
+            error
+        );
+
+
+        return res.status(500).json({
+            success:
+                false,
+
+            message:
+                "Failed to load profile",
+
+            error:
+                process.env.NODE_ENV === "production"
+                    ? undefined
+                    : error.message
+        });
+    }
+};
+
+
+// =========================================================
+// GET MY PROFILE PHOTO
+// =========================================================
+// Loads passport photo without putting binary data into
+// the normal profile response.
+
+exports.getMyProfilePhoto = async (req, res) => {
+    try {
+
+        const user =
+            await User.findById(
+                req.user.id
+            )
+                .select(
+                    "profilePhoto " +
+                    "documents.passportPhoto " +
+                    "+documents.passportPhoto.data"
+                );
+
+
+        if (!user) {
+            return res.status(404).json({
+                message:
+                    "User not found"
+            });
+        }
+
+
+        // =====================================================
+        // OPTION 1
+        // PROFILE PHOTO STORED AS DATA URL
+        // =====================================================
+
+        if (
+            user.profilePhoto &&
+            typeof user.profilePhoto === "string"
+        ) {
+
+            const match =
+                user.profilePhoto.match(
+                    /^data:(image\/[^;]+);base64,(.+)$/
+                );
+
+
+            if (match) {
+
+                const imageBuffer =
+                    Buffer.from(
+                        match[2],
+                        "base64"
+                    );
+
+
+                res.set({
+                    "Content-Type":
+                        match[1],
+
+                    "Cache-Control":
+                        "no-store",
+
+                    "Content-Length":
+                        imageBuffer.length
+                });
+
+
+                return res.send(
+                    imageBuffer
+                );
+            }
+        }
+
+
+        // =====================================================
+        // OPTION 2
+        // PASSPORT PHOTO FROM REGISTRATION
+        // =====================================================
+
+        const photo =
+            user.documents?.passportPhoto;
+
+
+        if (
+            !photo ||
+            !photo.data
+        ) {
+
+            return res.status(404).json({
+                message:
+                    "Profile photo not found"
+            });
+        }
+
+
+        let photoBuffer;
+
+
+        if (
+            Buffer.isBuffer(
+                photo.data
+            )
+        ) {
+
+            photoBuffer =
+                photo.data;
+
+        } else if (
+            photo.data.buffer &&
+            Buffer.isBuffer(
+                photo.data.buffer
+            )
+        ) {
+
+            photoBuffer =
+                photo.data.buffer;
+
+        } else {
+
+            try {
+
+                photoBuffer =
+                    Buffer.from(
+                        photo.data
+                    );
+
+            } catch (bufferError) {
+
+                console.error(
+                    "Photo buffer conversion error:",
+                    bufferError
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Invalid profile photo data"
+                });
+            }
+        }
+
+
+        if (
+            !photoBuffer ||
+            photoBuffer.length === 0
+        ) {
+
+            return res.status(404).json({
+                message:
+                    "Profile photo is empty"
+            });
+        }
+
+
+        res.set({
+            "Content-Type":
+                photo.mimeType ||
+                "image/jpeg",
+
+            "Cache-Control":
+                "no-store",
+
+            "Content-Length":
+                photoBuffer.length
+        });
+
+
+        return res.send(
+            photoBuffer
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "GET MY PROFILE PHOTO ERROR:",
             error
         );
 
 
         return res.status(500).json({
             message:
-                "Server error"
+                "Failed to load profile photo",
+
+            error:
+                process.env.NODE_ENV === "production"
+                    ? undefined
+                    : error.message
         });
     }
 };
+
+
 // =========================================================
 // UPDATE MY PROFILE
 // =========================================================
@@ -1568,9 +1776,6 @@ exports.changeAdmin = async (req, res) => {
 // =========================================================
 // GET ALL APPROVED SHOOTERS
 // =========================================================
-// IMPORTANT:
-// Pending and rejected shooters are NOT shown here.
-// They only appear in ID Approval when pending.
 
 exports.getShooters = async (req, res) => {
     try {
@@ -1604,6 +1809,7 @@ exports.getShooters = async (req, res) => {
             "Get shooters error:",
             err
         );
+
 
         res.status(500).json({
             message:
@@ -1649,6 +1855,7 @@ exports.getPendingShooters = async (req, res) => {
             "Get pending shooters error:",
             err
         );
+
 
         res.status(500).json({
             message:
@@ -1732,9 +1939,6 @@ exports.getShooterDetails = async (req, res) => {
                         }
 
 
-                        // Do not send binary data
-                        // in the details response.
-
                         delete doc.data;
                     }
                 }
@@ -1753,6 +1957,7 @@ exports.getShooterDetails = async (req, res) => {
             "Get shooter details error:",
             err
         );
+
 
         res.status(500).json({
             message:
@@ -1830,6 +2035,7 @@ exports.approveShooter = async (req, res) => {
             err
         );
 
+
         res.status(500).json({
             message:
                 err.message
@@ -1900,10 +2106,9 @@ exports.rejectShooter = async (req, res) => {
             null;
 
 
-        // Revoke any active session.
-
         shooter.activeSessionId =
             null;
+
 
         shooter.activeSessionExpiresAt =
             null;
@@ -1934,6 +2139,7 @@ exports.rejectShooter = async (req, res) => {
             "Reject shooter error:",
             err
         );
+
 
         res.status(500).json({
             message:
@@ -2016,8 +2222,6 @@ exports.getShooterDocument = async (req, res) => {
         }
 
 
-        // User.js stores mimeType.
-
         res.set(
             "Content-Type",
             file.mimeType ||
@@ -2036,7 +2240,7 @@ exports.getShooterDocument = async (req, res) => {
         }
 
 
-        res.send(
+        return res.send(
             file.data
         );
 
@@ -2047,6 +2251,7 @@ exports.getShooterDocument = async (req, res) => {
             "Get document error:",
             err
         );
+
 
         res.status(500).json({
             message:
@@ -2189,54 +2394,125 @@ exports.getMyDailyScores = async (req, res) => {
     }
 };
 
+
+// =========================================================
+// GET MY PROFILE DOCUMENT
+// =========================================================
+
 exports.getMyProfileDocument = async (req, res) => {
     try {
+
         const allowedDocuments = {
-            identityProof: "identityProof",
-            birthCertificate: "birthCertificate",
-            affidavit: "affidavit",
-            schoolShooterId: "schoolShooterId"
+            identityProof:
+                "identityProof",
+
+            birthCertificate:
+                "birthCertificate",
+
+            affidavit:
+                "affidavit",
+
+            schoolShooterId:
+                "schoolShooterId"
         };
 
-        const documentName = allowedDocuments[req.params.document];
+
+        const documentName =
+            allowedDocuments[
+                req.params.document
+            ];
+
 
         if (!documentName) {
             return res.status(400).json({
-                message: "Invalid document"
+                message:
+                    "Invalid document"
             });
         }
 
-        const user = await User.findOne({
-            _id: req.user.id,
-            role: "shooter"
-        }).select(`documents.${documentName}`);
 
-        if (!user || !user.documents || !user.documents[documentName]) {
+        const user =
+            await User.findOne({
+
+                _id:
+                    req.user.id,
+
+                role:
+                    "shooter"
+
+            }).select(
+                `documents.${documentName}`
+            );
+
+
+        if (
+            !user ||
+            !user.documents ||
+            !user.documents[documentName]
+        ) {
+
             return res.status(404).json({
-                message: "Document not found"
+                message:
+                    "Document not found"
             });
         }
 
-        const document = user.documents[documentName];
 
-        if (!document.data) {
+        const document =
+            user.documents[
+                documentName
+            ];
+
+
+        if (
+            !document.data
+        ) {
+
             return res.status(404).json({
-                message: "Document not uploaded"
+                message:
+                    "Document not uploaded"
             });
         }
+
 
         res.set({
-            "Content-Type": document.mimeType || "application/pdf",
-            "Content-Disposition": `inline; filename="${document.originalName || documentName}"`
+
+            "Content-Type":
+                document.mimeType ||
+                "application/pdf",
+
+            "Content-Disposition":
+                `inline; filename="${String(
+                    document.originalName ||
+                    documentName
+                ).replace(/"/g, "")}"`,
+
+            "Cache-Control":
+                "no-store"
         });
 
-        return res.send(document.data);
+
+        return res.send(
+            document.data
+        );
+
 
     } catch (error) {
-        console.error("Get my profile document error:", error);
+
+        console.error(
+            "Get my profile document error:",
+            error
+        );
+
 
         return res.status(500).json({
-            message: "Failed to load document"
+            message:
+                "Failed to load document",
+
+            error:
+                process.env.NODE_ENV === "production"
+                    ? undefined
+                    : error.message
         });
     }
 };
