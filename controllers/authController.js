@@ -1027,7 +1027,7 @@ exports.getMyProfile = async (req, res) => {
                     "-lockUntil " +
                     "-activeSessionId " +
                     "-activeSessionExpiresAt " +
-                    "-documents.data"
+                    "+documents.passportPhoto.data"
                 );
 
 
@@ -1042,14 +1042,25 @@ exports.getMyProfile = async (req, res) => {
         // =====================================================
         // PROFILE PHOTO
         // =====================================================
-        // Registration stores the original passport photo in:
-        // documents.passportPhoto.data
-        //
-        // Convert it to a data URL for the profile page.
 
-        let profilePhoto =
-            user.profilePhoto || "";
+        let profilePhoto = "";
 
+
+        // First check the profilePhoto field
+        if (
+            user.profilePhoto &&
+            typeof user.profilePhoto === "string" &&
+            user.profilePhoto.trim() !== ""
+        ) {
+
+            profilePhoto =
+                user.profilePhoto;
+
+        }
+
+
+        // If profilePhoto is empty,
+        // use the passport photo uploaded during registration.
 
         if (
             !profilePhoto &&
@@ -1060,18 +1071,20 @@ exports.getMyProfile = async (req, res) => {
                 user.documents.passportPhoto;
 
 
-            profilePhoto =
-                `data:${photo.mimeType || "image/jpeg"};base64,${Buffer.from(
+            const buffer =
+                Buffer.from(
                     photo.data
-                ).toString("base64")}`;
+                );
+
+
+            profilePhoto =
+                `data:${photo.mimeType || "image/jpeg"};base64,${buffer.toString("base64")}`;
         }
 
 
         // =====================================================
         // DOCUMENT INFORMATION
         // =====================================================
-        // Binary document data is NOT sent.
-        // Only file information is returned.
 
         const documents = {
 
@@ -1089,6 +1102,7 @@ exports.getMyProfile = async (req, res) => {
                     }
                     : null,
 
+
             birthCertificate:
                 user.documents?.birthCertificate
                     ? {
@@ -1103,6 +1117,7 @@ exports.getMyProfile = async (req, res) => {
                     }
                     : null,
 
+
             affidavit:
                 user.documents?.affidavit
                     ? {
@@ -1116,6 +1131,7 @@ exports.getMyProfile = async (req, res) => {
                             user.documents.affidavit.size
                     }
                     : null,
+
 
             schoolShooterId:
                 user.documents?.schoolShooterId
@@ -1137,7 +1153,7 @@ exports.getMyProfile = async (req, res) => {
         // PROFILE RESPONSE
         // =====================================================
 
-        res.status(200).json({
+        return res.status(200).json({
 
             id:
                 user._id,
@@ -1202,6 +1218,7 @@ exports.getMyProfile = async (req, res) => {
             assignedTimeSlot:
                 user.assignedTimeSlot || "",
 
+            // IMPORTANT
             profilePhoto:
                 profilePhoto,
 
@@ -1223,13 +1240,13 @@ exports.getMyProfile = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+
+        return res.status(500).json({
             message:
                 "Server error"
         });
     }
 };
-
 // =========================================================
 // UPDATE MY PROFILE
 // =========================================================
