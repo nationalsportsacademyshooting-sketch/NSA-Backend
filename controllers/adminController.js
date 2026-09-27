@@ -1043,6 +1043,19 @@ exports.updateShooter = async (req, res) => {
                 ).trim();
         }
 
+        // ====================================================
+// ASSIGNED TIME SLOT
+// ====================================================
+
+if (
+    req.body.assignedTimeSlot !== undefined
+) {
+
+    shooter.assignedTimeSlot =
+        String(
+            req.body.assignedTimeSlot
+        ).trim();
+}
 
         // ====================================================
         // KEEP FULL NAME UPDATED
@@ -1301,6 +1314,10 @@ exports.updateShooter = async (req, res) => {
 
                 category:
                     shooter.category,
+
+                    assignedTimeSlot:
+    shooter.assignedTimeSlot,
+
 
                 username:
                     shooter.username
