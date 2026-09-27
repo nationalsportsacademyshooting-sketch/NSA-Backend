@@ -526,6 +526,9 @@ exports.register = async (req, res) => {
                 rejectedAt:
                     null,
 
+                // Kept empty intentionally.
+                // The actual registration photo is stored
+                // in documents.passportPhoto.
                 profilePhoto:
                     "",
 
@@ -1024,11 +1027,6 @@ exports.logout = async (req, res) => {
 // =========================================================
 // GET MY PROFILE
 // =========================================================
-// Profile information and document metadata are returned
-// separately from binary document data.
-//
-// Profile photo is loaded through:
-// /api/auth/my-profile/photo
 
 exports.getMyProfile = async (req, res) => {
     try {
@@ -1263,11 +1261,13 @@ exports.getMyProfile = async (req, res) => {
 // =========================================================
 // GET MY PROFILE PHOTO
 // =========================================================
-// The passport photo uploaded during registration is stored
-// inside documents.passportPhoto.data.
+// IMPORTANT:
+// The old profilePhoto field is intentionally NOT used.
 //
-// This endpoint returns only the image binary and is protected
-// by the normal authentication middleware.
+// The actual photo selected during registration is stored at:
+// documents.passportPhoto.data
+//
+// This endpoint always returns that uploaded photo.
 
 exports.getMyProfilePhoto = async (req, res) => {
     try {
@@ -1281,10 +1281,7 @@ exports.getMyProfilePhoto = async (req, res) => {
                     "shooter"
 
             }).select(
-                "profilePhoto " +
-                "+documents.passportPhoto.data " +
-                "documents.passportPhoto.mimeType " +
-                "documents.passportPhoto.originalName"
+                "documents.passportPhoto"
             );
 
 
@@ -1297,57 +1294,7 @@ exports.getMyProfilePhoto = async (req, res) => {
 
 
         // =====================================================
-        // OPTION 1
-        // PROFILE PHOTO STORED AS DATA URL
-        // =====================================================
-
-        if (
-            user.profilePhoto &&
-            typeof user.profilePhoto === "string"
-        ) {
-
-            const match =
-                user.profilePhoto.match(
-                    /^data:(image\/[^;]+);base64,(.+)$/
-                );
-
-
-            if (match) {
-
-                const imageBuffer =
-                    Buffer.from(
-                        match[2],
-                        "base64"
-                    );
-
-
-                if (
-                    imageBuffer.length > 0
-                ) {
-
-                    res.set({
-                        "Content-Type":
-                            match[1],
-
-                        "Cache-Control":
-                            "no-store",
-
-                        "Content-Length":
-                            imageBuffer.length
-                    });
-
-
-                    return res.send(
-                        imageBuffer
-                    );
-                }
-            }
-        }
-
-
-        // =====================================================
-        // OPTION 2
-        // PASSPORT PHOTO FROM REGISTRATION
+        // GET ACTUAL PASSPORT PHOTO
         // =====================================================
 
         const photo =
@@ -1416,6 +1363,10 @@ exports.getMyProfilePhoto = async (req, res) => {
         }
 
 
+        // =====================================================
+        // CHECK PHOTO
+        // =====================================================
+
         if (
             !photoBuffer ||
             photoBuffer.length === 0
@@ -1429,10 +1380,11 @@ exports.getMyProfilePhoto = async (req, res) => {
 
 
         // =====================================================
-        // SEND IMAGE
+        // SEND ACTUAL UPLOADED PHOTO
         // =====================================================
 
         res.set({
+
             "Content-Type":
                 photo.mimeType ||
                 "image/jpeg",
