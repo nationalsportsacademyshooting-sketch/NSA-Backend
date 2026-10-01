@@ -28,7 +28,6 @@ const corsOptions = {
     origin: function (origin, callback) {
 
         // Allow requests without an Origin header.
-        // This includes server-to-server requests and Postman.
         if (!origin) {
             return callback(null, true);
         }
@@ -56,23 +55,90 @@ const corsOptions = {
     ],
 
     allowedHeaders: [
+        "Origin",
+        "X-Requested-With",
         "Content-Type",
+        "Accept",
         "Authorization"
     ],
 
     optionsSuccessStatus: 204
 };
 
-// Apply CORS before all API routes.
-app.use(cors(corsOptions));
+// ======================================================
+// EXPLICIT PREFLIGHT HANDLER
+// ======================================================
 
-// IMPORTANT:
-// Do NOT use:
-// app.options("*", cors(corsOptions));
-//
-// The current Express/router version used by this project
-// throws a PathError when "*" is used as the route pattern.
-// The cors middleware above already handles preflight requests.
+// Handle browser OPTIONS/preflight requests BEFORE API routes.
+// Do not use app.options("*", ...) because the current
+// Express/router version rejects "*" as a route pattern.
+
+app.use((req, res, next) => {
+
+    if (req.method !== "OPTIONS") {
+        return next();
+    }
+
+    const origin = req.headers.origin;
+
+    console.log(
+        "CORS preflight request:",
+        origin || "NO ORIGIN"
+    );
+
+    // Requests without an Origin are allowed.
+    if (!origin) {
+        return res.status(204).end();
+    }
+
+    // Reject unknown origins.
+    if (!allowedOrigins.includes(origin)) {
+
+        console.log(
+            "CORS preflight blocked:",
+            origin
+        );
+
+        return res.status(403).json({
+            success: false,
+            message: "CORS: Origin not allowed"
+        });
+    }
+
+    // Explicitly send all required CORS headers.
+    res.setHeader(
+        "Access-Control-Allow-Origin",
+        origin
+    );
+
+    res.setHeader(
+        "Access-Control-Allow-Credentials",
+        "true"
+    );
+
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
+
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
+
+    res.setHeader(
+        "Access-Control-Max-Age",
+        "86400"
+    );
+
+    return res.status(204).end();
+});
+
+// ======================================================
+// NORMAL CORS MIDDLEWARE
+// ======================================================
+
+app.use(cors(corsOptions));
 
 // ======================================================
 // BODY PARSING
