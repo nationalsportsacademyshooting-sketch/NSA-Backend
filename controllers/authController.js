@@ -7,18 +7,18 @@ const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 const DOCUMENT_MAX_BYTES = 2 * 1024 * 1024;
 
 
-// =========================================================
-// TOKEN EXPIRY
-// =========================================================
+/* =========================================================
+   TOKEN EXPIRY
+   ========================================================= */
 
 function getTokenExpiryDate() {
     return new Date(Date.now() + 24 * 60 * 60 * 1000);
 }
 
 
-// =========================================================
-// PUBLIC USER DATA
-// =========================================================
+/* =========================================================
+   PUBLIC USER DATA
+   ========================================================= */
 
 function publicUser(user) {
     return {
@@ -33,38 +33,31 @@ function publicUser(user) {
 }
 
 
-// =========================================================
-// ESCAPE REGEX
-// =========================================================
+/* =========================================================
+   ESCAPE REGEX
+   ========================================================= */
 
 function escapeRegex(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 
-// =========================================================
-// GENERATE UNIQUE NSA SHOOTER ID
-// =========================================================
-//
-// DOB: 15/10/2010
-//
-// 1st shooter -> NSA1510201001
-// 2nd shooter -> NSA1510201002
-// 3rd shooter -> NSA1510201003
-//
-// Rejected applications are included while calculating the
-// next sequence number. Therefore, re-registration gets a
-// NEW Shooter ID.
-//
-// Example:
-//
-// Old rejected:
-// NSA1510201001
-//
-// New registration:
-// NSA1510201002
-//
-// =========================================================
+/* =========================================================
+   GENERATE UNIQUE NSA SHOOTER ID
+   =========================================================
+
+   DOB: 15/10/2010
+
+   1st shooter -> NSA1510201001
+   2nd shooter -> NSA1510201002
+   3rd shooter -> NSA1510201003
+
+   Rejected applications are included while calculating
+   the next sequence number.
+
+   Therefore, when a rejected shooter registers again,
+   the old Shooter ID is never reused.
+   ========================================================= */
 
 async function generateShooterId(dobString) {
     const [year, month, day] = dobString.split("-");
@@ -84,7 +77,6 @@ async function generateShooterId(dobString) {
     let highestSequence = 0;
 
     for (const shooter of existingShooters) {
-        // New records using shooterIdSequence
         const storedSequence = Number(
             shooter.shooterIdSequence
         );
@@ -96,7 +88,6 @@ async function generateShooterId(dobString) {
             );
         }
 
-        // Existing/old records without shooterIdSequence
         if (shooter.shooterId) {
             const suffix =
                 shooter.shooterId.slice(prefix.length);
@@ -139,9 +130,9 @@ async function generateShooterId(dobString) {
 }
 
 
-// =========================================================
-// REGISTER SHOOTER
-// =========================================================
+/* =========================================================
+   REGISTER SHOOTER
+   ========================================================= */
 
 exports.register = async (req, res) => {
     try {
@@ -166,9 +157,9 @@ exports.register = async (req, res) => {
         } = req.body || {};
 
 
-        // =====================================================
-        // REQUIRED FIELDS
-        // =====================================================
+        /* =====================================================
+           REQUIRED FIELDS
+           ===================================================== */
 
         if (
             !firstName ||
@@ -194,9 +185,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // DECLARATION
-        // =====================================================
+        /* =====================================================
+           DECLARATION
+           ===================================================== */
 
         if (
             declaration !== true &&
@@ -209,9 +200,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // PHONE
-        // =====================================================
+        /* =====================================================
+           PHONE
+           ===================================================== */
 
         const normalizedPhone =
             String(phone).trim();
@@ -224,9 +215,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // EMAIL
-        // =====================================================
+        /* =====================================================
+           EMAIL
+           ===================================================== */
 
         const normalizedEmail =
             String(email)
@@ -244,9 +235,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // USERNAME = EMAIL
-        // =====================================================
+        /* =====================================================
+           USERNAME = EMAIL
+           ===================================================== */
 
         const normalizedUsername =
             normalizedEmail;
@@ -264,9 +255,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // PASSWORD
-        // =====================================================
+        /* =====================================================
+           PASSWORD
+           ===================================================== */
 
         if (String(password).length < 8) {
             return res.status(400).json({
@@ -286,9 +277,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // DATE OF BIRTH
-        // =====================================================
+        /* =====================================================
+           DATE OF BIRTH
+           ===================================================== */
 
         const dobString =
             String(dateOfBirth).trim();
@@ -322,17 +313,14 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // CHECK EXISTING EMAIL / USERNAME
-        // =====================================================
-        //
-        // APPROVED -> BLOCK
-        // PENDING  -> BLOCK
-        // REJECTED -> ALLOW NEW REGISTRATION
-        //
-        // A rejected application is kept until the new
-        // registration has passed all validation.
-        // =====================================================
+        /* =====================================================
+           CHECK EXISTING EMAIL / USERNAME
+           =====================================================
+
+           APPROVED -> BLOCK
+           PENDING  -> BLOCK
+           REJECTED -> ALLOW NEW REGISTRATION
+           ===================================================== */
 
         const matchingAccounts =
             await User.find({
@@ -381,15 +369,15 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // GENERATE NEW SHOOTER ID
-        // =====================================================
-        //
-        // IMPORTANT:
-        // This happens BEFORE deleting the rejected record.
-        //
-        // Therefore an old rejected ID is never reused.
-        // =====================================================
+        /* =====================================================
+           GENERATE NEW SHOOTER ID
+           =====================================================
+
+           IMPORTANT:
+           This happens BEFORE deleting rejected records.
+
+           Therefore an old rejected ID is never reused.
+           ===================================================== */
 
         const generatedId =
             await generateShooterId(dobString);
@@ -401,9 +389,9 @@ exports.register = async (req, res) => {
             generatedId.shooterIdSequence;
 
 
-        // =====================================================
-        // FILES
-        // =====================================================
+        /* =====================================================
+           FILES
+           ===================================================== */
 
         const files = req.files || {};
 
@@ -423,9 +411,9 @@ exports.register = async (req, res) => {
             files.schoolShooterId?.[0];
 
 
-        // =====================================================
-        // REQUIRED DOCUMENTS
-        // =====================================================
+        /* =====================================================
+           REQUIRED DOCUMENTS
+           ===================================================== */
 
         if (!passportPhoto) {
             return res.status(400).json({
@@ -456,9 +444,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // UPLOADED FILES
-        // =====================================================
+        /* =====================================================
+           UPLOADED FILES
+           ===================================================== */
 
         const uploadedFiles = [
             passportPhoto,
@@ -469,9 +457,9 @@ exports.register = async (req, res) => {
         ].filter(Boolean);
 
 
-        // =====================================================
-        // FILE SIZE
-        // =====================================================
+        /* =====================================================
+           FILE SIZE
+           ===================================================== */
 
         for (const file of uploadedFiles) {
             if (file.size > DOCUMENT_MAX_BYTES) {
@@ -483,9 +471,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // ALLOWED FILE TYPES
-        // =====================================================
+        /* =====================================================
+           ALLOWED FILE TYPES
+           ===================================================== */
 
         const allowedMimeTypes = [
             "image/jpeg",
@@ -507,9 +495,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // PASSPORT PHOTO SIZE
-        // =====================================================
+        /* =====================================================
+           PASSPORT PHOTO SIZE
+           ===================================================== */
 
         if (
             passportPhoto.size >
@@ -522,17 +510,19 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // DELETE OLD REJECTED APPLICATIONS
-        // =====================================================
-        //
-        // IMPORTANT:
-        // This is deliberately AFTER all new registration
-        // file validation.
-        //
-        // If the new registration has an invalid/missing file,
-        // the old rejected application remains available.
-        // =====================================================
+        /* =====================================================
+           DELETE OLD REJECTED APPLICATIONS
+           =====================================================
+
+           This is deliberately AFTER all new registration
+           validation.
+
+           If validation fails, the old rejected application
+           remains available with its rejection reason.
+
+           If validation succeeds, the old rejected record
+           is deleted before creating the new application.
+           ===================================================== */
 
         const rejectedAccounts =
             matchingAccounts.filter(
@@ -554,9 +544,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // FINAL DUPLICATE SHOOTER ID CHECK
-        // =====================================================
+        /* =====================================================
+           FINAL DUPLICATE SHOOTER ID CHECK
+           ===================================================== */
 
         const existingShooterId =
             await User.findOne({
@@ -573,9 +563,9 @@ exports.register = async (req, res) => {
         }
 
 
-        // =====================================================
-        // HASH PASSWORD
-        // =====================================================
+        /* =====================================================
+           HASH PASSWORD
+           ===================================================== */
 
         const hashedPassword =
             await bcrypt.hash(
@@ -584,18 +574,18 @@ exports.register = async (req, res) => {
             );
 
 
-        // =====================================================
-        // FULL NAME
-        // =====================================================
+        /* =====================================================
+           FULL NAME
+           ===================================================== */
 
         const fullName =
             `${String(firstName).trim()} ${String(lastName).trim()}`
                 .trim();
 
 
-        // =====================================================
-        // CREATE USER
-        // =====================================================
+        /* =====================================================
+           CREATE USER
+           ===================================================== */
 
         const user = new User({
             username:
@@ -650,7 +640,7 @@ exports.register = async (req, res) => {
                 dobString,
 
             dateOfBirth:
-                dobString,
+                dobDate,
 
             shooterId:
                 shooterId,
@@ -753,16 +743,16 @@ exports.register = async (req, res) => {
         });
 
 
-        // =====================================================
-        // SAVE
-        // =====================================================
+        /* =====================================================
+           SAVE
+           ===================================================== */
 
         await user.save();
 
 
-        // =====================================================
-        // SUCCESS
-        // =====================================================
+        /* =====================================================
+           SUCCESS
+           ===================================================== */
 
         return res.status(201).json({
             message:
@@ -817,9 +807,9 @@ exports.register = async (req, res) => {
 };
 
 
-// =========================================================
-// LOGIN
-// =========================================================
+/* =========================================================
+   LOGIN
+   ========================================================= */
 
 exports.login = async (req, res) => {
     try {
@@ -851,12 +841,13 @@ exports.login = async (req, res) => {
         }
 
 
-        // =====================================================
-        // INITIALISE SECURITY FIELDS
-        // =====================================================
+        /* =====================================================
+           INITIALISE SECURITY FIELDS
+           ===================================================== */
 
-        if (user.failedAttempts === undefined) {
-            user.failedAttempts = 0;
+        if (typeof user.failedAttempts !== "number") {
+            user.failedAttempts =
+                Number(user.loginAttempts || 0);
         }
 
         if (user.activeSessionId === undefined) {
@@ -870,9 +861,9 @@ exports.login = async (req, res) => {
         }
 
 
-        // =====================================================
-        // ACCOUNT LOCK
-        // =====================================================
+        /* =====================================================
+           ACCOUNT LOCK
+           ===================================================== */
 
         if (
             user.lockUntil &&
@@ -892,24 +883,25 @@ exports.login = async (req, res) => {
         }
 
 
-        // =====================================================
-        // EXPIRED LOCK
-        // =====================================================
+        /* =====================================================
+           EXPIRED LOCK
+           ===================================================== */
 
         if (
             user.lockUntil &&
             user.lockUntil <= new Date()
         ) {
             user.failedAttempts = 0;
+            user.loginAttempts = 0;
             user.lockUntil = null;
 
             await user.save();
         }
 
 
-        // =====================================================
-        // PASSWORD
-        // =====================================================
+        /* =====================================================
+           PASSWORD
+           ===================================================== */
 
         const isMatch =
             await bcrypt.compare(
@@ -920,6 +912,9 @@ exports.login = async (req, res) => {
         if (!isMatch) {
             user.failedAttempts =
                 (user.failedAttempts || 0) + 1;
+
+            user.loginAttempts =
+                user.failedAttempts;
 
             let lockSeconds = 0;
 
@@ -959,9 +954,9 @@ exports.login = async (req, res) => {
         }
 
 
-        // =====================================================
-        // APPROVAL CHECK
-        // =====================================================
+        /* =====================================================
+           APPROVAL CHECK
+           ===================================================== */
 
         if (
             user.role === "shooter" &&
@@ -983,12 +978,14 @@ exports.login = async (req, res) => {
         }
 
 
-        // =====================================================
-        // SUCCESSFUL LOGIN
-        // =====================================================
+        /* =====================================================
+           SUCCESSFUL LOGIN
+           ===================================================== */
 
         user.failedAttempts = 0;
+        user.loginAttempts = 0;
         user.lockUntil = null;
+        user.lastLogin = new Date();
 
         const sessionId =
             crypto.randomUUID();
@@ -1054,9 +1051,9 @@ exports.login = async (req, res) => {
 };
 
 
-// =========================================================
-// LOGOUT
-// =========================================================
+/* =========================================================
+   LOGOUT
+   ========================================================= */
 
 exports.logout = async (req, res) => {
     try {
@@ -1093,9 +1090,9 @@ exports.logout = async (req, res) => {
 };
 
 
-// =========================================================
-// GET MY PROFILE
-// =========================================================
+/* =========================================================
+   GET MY PROFILE
+   ========================================================= */
 
 exports.getMyProfile = async (req, res) => {
     try {
@@ -1106,6 +1103,7 @@ exports.getMyProfile = async (req, res) => {
                 .select(
                     "-password " +
                     "-failedAttempts " +
+                    "-loginAttempts " +
                     "-lockUntil " +
                     "-activeSessionId " +
                     "-activeSessionExpiresAt " +
@@ -1305,9 +1303,9 @@ exports.getMyProfile = async (req, res) => {
 };
 
 
-// =========================================================
-// GET MY PROFILE PHOTO
-// =========================================================
+/* =========================================================
+   GET MY PROFILE PHOTO
+   ========================================================= */
 
 exports.getMyProfilePhoto = async (req, res) => {
     try {
@@ -1414,9 +1412,9 @@ exports.getMyProfilePhoto = async (req, res) => {
 };
 
 
-// =========================================================
-// UPDATE MY PROFILE
-// =========================================================
+/* =========================================================
+   UPDATE MY PROFILE
+   ========================================================= */
 
 exports.updateMyProfile = async (req, res) => {
     try {
@@ -1454,9 +1452,9 @@ exports.updateMyProfile = async (req, res) => {
         ];
 
 
-        // =====================================================
-        // USERNAME
-        // =====================================================
+        /* =====================================================
+           USERNAME
+           ===================================================== */
 
         if (body.username !== undefined) {
             const username =
@@ -1493,9 +1491,9 @@ exports.updateMyProfile = async (req, res) => {
         }
 
 
-        // =====================================================
-        // OTHER FIELDS
-        // =====================================================
+        /* =====================================================
+           OTHER FIELDS
+           ===================================================== */
 
         for (const field of allowedFields) {
             if (field === "username") {
@@ -1509,9 +1507,9 @@ exports.updateMyProfile = async (req, res) => {
         }
 
 
-        // =====================================================
-        // PASSWORD
-        // =====================================================
+        /* =====================================================
+           PASSWORD
+           ===================================================== */
 
         if (body.password) {
             user.password =
@@ -1522,9 +1520,13 @@ exports.updateMyProfile = async (req, res) => {
         }
 
 
-        // =====================================================
-        // PROFILE PHOTO
-        // =====================================================
+        /* =====================================================
+           PROFILE PHOTO
+           =====================================================
+
+           profilePhoto is a String field for compatibility
+           with existing database records.
+           ===================================================== */
 
         if (
             body.profilePhoto !==
@@ -1612,9 +1614,9 @@ exports.updateMyProfile = async (req, res) => {
 };
 
 
-// =========================================================
-// CHANGE ADMIN USERNAME & PASSWORD
-// =========================================================
+/* =========================================================
+   CHANGE ADMIN USERNAME & PASSWORD
+   ========================================================= */
 
 exports.changeAdmin = async (req, res) => {
     try {
@@ -1699,9 +1701,9 @@ exports.changeAdmin = async (req, res) => {
 };
 
 
-// =========================================================
-// FORGOT / RESET PASSWORD
-// =========================================================
+/* =========================================================
+   FORGOT / RESET PASSWORD
+   ========================================================= */
 
 exports.resetPassword = async (req, res) => {
     try {
@@ -1758,9 +1760,9 @@ exports.resetPassword = async (req, res) => {
         }
 
 
-        // =====================================================
-        // ADMIN RESET
-        // =====================================================
+        /* =====================================================
+           ADMIN RESET
+           ===================================================== */
 
         if (accountType === "admin") {
             const recoveryCode =
@@ -1806,6 +1808,7 @@ exports.resetPassword = async (req, res) => {
                 );
 
             admin.failedAttempts = 0;
+            admin.loginAttempts = 0;
             admin.lockUntil = null;
             admin.activeSessionId = null;
             admin.activeSessionExpiresAt = null;
@@ -1819,9 +1822,9 @@ exports.resetPassword = async (req, res) => {
         }
 
 
-        // =====================================================
-        // SHOOTER RESET
-        // =====================================================
+        /* =====================================================
+           SHOOTER RESET
+           ===================================================== */
 
         const email =
             String(
@@ -1851,6 +1854,11 @@ exports.resetPassword = async (req, res) => {
             });
         }
 
+        const parsedDob =
+            /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
+                ? new Date(`${dateOfBirth}T00:00:00.000Z`)
+                : null;
+
         const shooter =
             await User.findOne({
                 username,
@@ -1868,8 +1876,10 @@ exports.resetPassword = async (req, res) => {
                     },
                     {
                         $or: [
-                            { dateOfBirth },
-                            { dob: dateOfBirth }
+                            { dob: dateOfBirth },
+                            ...(parsedDob
+                                ? [{ dateOfBirth: parsedDob }]
+                                : [])
                         ]
                     }
                 ]
@@ -1889,6 +1899,7 @@ exports.resetPassword = async (req, res) => {
             );
 
         shooter.failedAttempts = 0;
+        shooter.loginAttempts = 0;
         shooter.lockUntil = null;
         shooter.activeSessionId = null;
         shooter.activeSessionExpiresAt = null;
@@ -1914,9 +1925,9 @@ exports.resetPassword = async (req, res) => {
 };
 
 
-// =========================================================
-// GET ALL APPROVED SHOOTERS
-// =========================================================
+/* =========================================================
+   GET ALL APPROVED SHOOTERS
+   ========================================================= */
 
 exports.getShooters = async (req, res) => {
     try {
@@ -1957,9 +1968,9 @@ exports.getShooters = async (req, res) => {
 };
 
 
-// =========================================================
-// GET PENDING REGISTRATION REQUESTS
-// =========================================================
+/* =========================================================
+   GET PENDING REGISTRATION REQUESTS
+   ========================================================= */
 
 exports.getPendingShooters = async (req, res) => {
     try {
@@ -2000,9 +2011,9 @@ exports.getPendingShooters = async (req, res) => {
 };
 
 
-// =========================================================
-// GET SHOOTER DETAILS
-// =========================================================
+/* =========================================================
+   GET SHOOTER DETAILS
+   ========================================================= */
 
 exports.getShooterDetails = async (req, res) => {
     try {
@@ -2016,6 +2027,7 @@ exports.getShooterDetails = async (req, res) => {
             }).select(
                 "-password " +
                 "-failedAttempts " +
+                "-loginAttempts " +
                 "-lockUntil " +
                 "-activeSessionId " +
                 "-activeSessionExpiresAt"
@@ -2067,9 +2079,9 @@ exports.getShooterDetails = async (req, res) => {
 };
 
 
-// =========================================================
-// APPROVE SHOOTER
-// =========================================================
+/* =========================================================
+   APPROVE SHOOTER
+   ========================================================= */
 
 exports.approveShooter = async (req, res) => {
     try {
@@ -2131,9 +2143,9 @@ exports.approveShooter = async (req, res) => {
 };
 
 
-// =========================================================
-// REJECT SHOOTER
-// =========================================================
+/* =========================================================
+   REJECT SHOOTER
+   ========================================================= */
 
 exports.rejectShooter = async (req, res) => {
     try {
@@ -2219,9 +2231,9 @@ exports.rejectShooter = async (req, res) => {
 };
 
 
-// =========================================================
-// GET REGISTRATION DOCUMENT
-// =========================================================
+/* =========================================================
+   GET REGISTRATION DOCUMENT
+   ========================================================= */
 
 exports.getShooterDocument = async (req, res) => {
     try {
@@ -2306,9 +2318,9 @@ exports.getShooterDocument = async (req, res) => {
 };
 
 
-// =========================================================
-// GET MY ATTENDANCE
-// =========================================================
+/* =========================================================
+   GET MY ATTENDANCE
+   ========================================================= */
 
 exports.getMyAttendance = async (req, res) => {
     try {
@@ -2336,9 +2348,8 @@ exports.getMyAttendance = async (req, res) => {
             [...(shooter.attendance || [])]
                 .sort(
                     (first, second) =>
-                        second.date.localeCompare(
-                            first.date
-                        )
+                        new Date(second.date).getTime() -
+                        new Date(first.date).getTime()
                 );
 
         res.json({
@@ -2360,9 +2371,9 @@ exports.getMyAttendance = async (req, res) => {
 };
 
 
-// =========================================================
-// GET MY DAILY SCORES
-// =========================================================
+/* =========================================================
+   GET MY DAILY SCORES
+   ========================================================= */
 
 exports.getMyDailyScores = async (req, res) => {
     try {
@@ -2390,9 +2401,8 @@ exports.getMyDailyScores = async (req, res) => {
             [...(shooter.dailyScores || [])]
                 .sort(
                     (first, second) =>
-                        second.date.localeCompare(
-                            first.date
-                        )
+                        new Date(second.date).getTime() -
+                        new Date(first.date).getTime()
                 );
 
         res.json({
@@ -2414,9 +2424,9 @@ exports.getMyDailyScores = async (req, res) => {
 };
 
 
-// =========================================================
-// GET MY PROFILE DOCUMENT
-// =========================================================
+/* =========================================================
+   GET MY PROFILE DOCUMENT
+   ========================================================= */
 
 exports.getMyProfileDocument = async (req, res) => {
     try {

@@ -282,11 +282,19 @@ const userSchema = new mongoose.Schema(
 
         /* =================================================
            PROFILE PHOTO
+        =================================================
+
+        IMPORTANT:
+        This is kept as a String because older records may
+        already contain a string/base64 value.
+
+        The registration passport photo is stored separately
+        inside documents.passportPhoto.
         ================================================= */
 
         profilePhoto: {
-            type: documentSchema,
-            default: null
+            type: String,
+            default: ""
         },
 
 
@@ -356,7 +364,22 @@ const userSchema = new mongoose.Schema(
             default: 0
         },
 
+        failedAttempts: {
+            type: Number,
+            default: 0
+        },
+
         lockUntil: {
+            type: Date,
+            default: null
+        },
+
+        activeSessionId: {
+            type: String,
+            default: null
+        },
+
+        activeSessionExpiresAt: {
             type: Date,
             default: null
         },
@@ -416,26 +439,6 @@ userSchema.index({
     dateOfBirth: 1,
     shooterIdSequence: -1
 });
-
-
-/* =========================================================
-   IMPORTANT
-   =========================================================
-
-   DO NOT add:
-
-   userSchema.index({ shooterId: 1 });
-
-   The following already creates the unique sparse
-   shooterId index:
-
-   shooterId: {
-       type: String,
-       unique: true,
-       sparse: true
-   }
-
-   ========================================================= */
 
 
 /* =========================================================
