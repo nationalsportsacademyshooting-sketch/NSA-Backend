@@ -22,7 +22,7 @@ const allowedOrigins = [
     "http://127.0.0.1:5500",
     "http://localhost:5500"
 
-    // Add your deployed frontend URL here when needed:
+    // If your frontend is deployed online, add its URL here:
     // "https://your-frontend-domain.com"
 ];
 
@@ -30,7 +30,7 @@ const corsOptions = {
     origin: function (origin, callback) {
 
         // Allow requests without an Origin header.
-        // This allows server-to-server requests, Postman, etc.
+        // This includes server-to-server requests and Postman.
         if (!origin) {
             return callback(null, true);
         }
@@ -68,8 +68,13 @@ const corsOptions = {
 // Apply CORS before all API routes.
 app.use(cors(corsOptions));
 
-// Explicitly handle browser preflight requests.
-app.options("*", cors(corsOptions));
+// IMPORTANT:
+// Do NOT use:
+// app.options("*", cors(corsOptions));
+//
+// The current Express/router version used by this project
+// throws a PathError when "*" is used as the route pattern.
+// The cors middleware above already handles preflight requests.
 
 // ======================================================
 // BODY PARSING
@@ -116,17 +121,23 @@ const resultRoutes = require("./routes/resultRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const leaveRoutes = require("./routes/leaveRoutes");
 
-// Login rate limiter
+// ======================================================
+// RATE-LIMITED AUTH ROUTES
+// ======================================================
+
 app.use(
     "/api/auth/login",
     loginLimiter
 );
 
-// Forgot-password rate limiter
 app.use(
     "/api/auth/forgot-password",
     loginLimiter
 );
+
+// ======================================================
+// API ROUTES
+// ======================================================
 
 // Authentication
 app.use(
@@ -197,7 +208,7 @@ app.use((err, req, res, next) => {
 
     console.error("Server error:", err);
 
-    // CORS error
+    // Handle CORS errors
     if (
         err &&
         typeof err.message === "string" &&
