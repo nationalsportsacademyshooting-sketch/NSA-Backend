@@ -12,9 +12,7 @@ const DOCUMENT_MAX_BYTES = 2 * 1024 * 1024;
 // =========================================================
 
 function getTokenExpiryDate() {
-    return new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-    );
+    return new Date(Date.now() + 24 * 60 * 60 * 1000);
 }
 
 
@@ -36,12 +34,105 @@ function publicUser(user) {
 
 
 // =========================================================
+// ESCAPE REGEX
+// =========================================================
+
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+
+// =========================================================
+// GENERATE UNIQUE NSA SHOOTER ID
+// =========================================================
+//
+// DOB: 15/10/2010
+//
+// 1st shooter -> NSA1510201001
+// 2nd shooter -> NSA1510201002
+// 3rd shooter -> NSA1510201003
+//
+// Existing rejected applications are included while calculating
+// the next number. Therefore, re-registration gets a NEW ID.
+// =========================================================
+
+async function generateShooterId(dobString) {
+    const [year, month, day] = dobString.split("-");
+
+    const dobPart = `${day}${month}${year}`;
+    const prefix = `NSA${dobPart}`;
+
+    const existingShooters = await User.find({
+        role: "shooter",
+        shooterId: {
+            $regex: `^${escapeRegex(prefix)}\\d+$`
+        }
+    })
+        .select("shooterId shooterIdSequence")
+        .lean();
+
+    let highestSequence = 0;
+
+    for (const shooter of existingShooters) {
+        // New records
+        if (
+            Number.isFinite(
+                Number(shooter.shooterIdSequence)
+            )
+        ) {
+            highestSequence = Math.max(
+                highestSequence,
+                Number(shooter.shooterIdSequence)
+            );
+        }
+
+        // Existing/old records without shooterIdSequence
+        if (shooter.shooterId) {
+            const suffix = shooter.shooterId.slice(prefix.length);
+
+            const parsed = Number.parseInt(suffix, 10);
+
+            if (Number.isFinite(parsed)) {
+                highestSequence = Math.max(
+                    highestSequence,
+                    parsed
+                );
+            }
+        }
+    }
+
+    let nextSequence = highestSequence + 1;
+
+    while (true) {
+        const sequenceString =
+            String(nextSequence).padStart(2, "0");
+
+        const shooterId =
+            `${prefix}${sequenceString}`;
+
+        const alreadyExists =
+            await User.exists({
+                shooterId
+            });
+
+        if (!alreadyExists) {
+            return {
+                shooterId,
+                shooterIdSequence: nextSequence
+            };
+        }
+
+        nextSequence++;
+    }
+}
+
+
+// =========================================================
 // REGISTER SHOOTER
 // =========================================================
 
 exports.register = async (req, res) => {
     try {
-
         const {
             firstName,
             lastName,
@@ -85,8 +176,7 @@ exports.register = async (req, res) => {
             !confirmPassword
         ) {
             return res.status(400).json({
-                message:
-                    "Please fill all required fields."
+                message: "Please fill all required fields."
             });
         }
 
@@ -100,8 +190,7 @@ exports.register = async (req, res) => {
             declaration !== "true"
         ) {
             return res.status(400).json({
-                message:
-                    "You must accept the declaration."
+                message: "You must accept the declaration."
             });
         }
 
@@ -113,11 +202,7 @@ exports.register = async (req, res) => {
         const normalizedPhone =
             String(phone).trim();
 
-        if (
-            !/^[6-9]\d{9}$/.test(
-                normalizedPhone
-            )
-        ) {
+        if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
             return res.status(400).json({
                 message:
                     "Please enter a valid 10-digit Indian mobile number."
@@ -137,14 +222,9 @@ exports.register = async (req, res) => {
         const emailRegex =
             /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        if (
-            !emailRegex.test(
-                normalizedEmail
-            )
-        ) {
+        if (!emailRegex.test(normalizedEmail)) {
             return res.status(400).json({
-                message:
-                    "Please enter a valid email address."
+                message: "Please enter a valid email address."
             });
         }
 
@@ -160,8 +240,7 @@ exports.register = async (req, res) => {
             username &&
             String(username)
                 .trim()
-                .toLowerCase() !==
-                normalizedEmail
+                .toLowerCase() !== normalizedEmail
         ) {
             return res.status(400).json({
                 message:
@@ -174,9 +253,7 @@ exports.register = async (req, res) => {
         // PASSWORD
         // =====================================================
 
-        if (
-            String(password).length < 8
-        ) {
+        if (String(password).length < 8) {
             return res.status(400).json({
                 message:
                     "Password must be at least 8 characters long."
@@ -188,8 +265,7 @@ exports.register = async (req, res) => {
             String(confirmPassword)
         ) {
             return res.status(400).json({
-                message:
-                    "Passwords do not match."
+                message: "Passwords do not match."
             });
         }
 
@@ -201,71 +277,86 @@ exports.register = async (req, res) => {
         const dobString =
             String(dateOfBirth).trim();
 
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dobString)) {
+            return res.status(400).json({
+                message: "Invalid date of birth."
+            });
+        }
+
+        const [year, month, day] =
+            dobString.split("-");
+
+        const dobDate = new Date(
+            Number(year),
+            Number(month) - 1,
+            Number(day)
+        );
+
         if (
-            !/^\d{4}-\d{2}-\d{2}$/.test(
-                dobString
-            )
+            Number.isNaN(dobDate.getTime()) ||
+            dobDate.getFullYear() !== Number(year) ||
+            dobDate.getMonth() !== Number(month) - 1 ||
+            dobDate.getDate() !== Number(day)
         ) {
             return res.status(400).json({
-                message:
-                    "Invalid date of birth."
+                message: "Invalid date of birth."
             });
         }
 
 
-        const [
-            year,
-            month,
-            day
-        ] = dobString.split("-");
+        // =====================================================
+        // CHECK EXISTING EMAIL / USERNAME
+        // =====================================================
+        //
+        // APPROVED -> BLOCK
+        // PENDING  -> BLOCK
+        // REJECTED -> ALLOW NEW REGISTRATION
+        //
+        // IMPORTANT:
+        // The new Shooter ID is generated BEFORE the rejected
+        // record is deleted, so the old ID sequence is consumed.
+        // =====================================================
+
+        const matchingAccounts =
+            await User.find({
+                $or: [
+                    {
+                        username:
+                            normalizedUsername
+                    },
+                    {
+                        email:
+                            normalizedEmail
+                    }
+                ]
+            })
+                .select(
+                    "_id username email role status shooterId shooterIdSequence"
+                )
+                .lean();
 
 
-        const dobDate =
-            new Date(
-                Number(year),
-                Number(month) - 1,
-                Number(day)
+        const blockingAccount =
+            matchingAccounts.find(
+                account =>
+                    !(
+                        account.role === "shooter" &&
+                        account.status === "rejected"
+                    )
             );
 
 
-        if (
-            Number.isNaN(
-                dobDate.getTime()
-            ) ||
-            dobDate.getFullYear() !==
-                Number(year) ||
-            dobDate.getMonth() !==
-                Number(month) - 1 ||
-            dobDate.getDate() !==
-                Number(day)
-        ) {
-            return res.status(400).json({
-                message:
-                    "Invalid date of birth."
-            });
-        }
+        if (blockingAccount) {
+            if (
+                blockingAccount.role === "shooter" &&
+                blockingAccount.status === "pending"
+            ) {
+                return res.status(400).json({
+                    message:
+                        "An application with this email is already pending."
+                });
+            }
 
-
-        // =====================================================
-        // SHOOTER ID
-        // =====================================================
-
-        const shooterId =
-            `NSA${day}${month}${year}`;
-
-
-        // =====================================================
-        // CHECK DUPLICATE USERNAME
-        // =====================================================
-
-        const existingUser =
-            await User.findOne({
-                username:
-                    normalizedUsername
-            });
-
-
-        if (existingUser) {
             return res.status(400).json({
                 message:
                     "An account with this email already exists."
@@ -274,19 +365,68 @@ exports.register = async (req, res) => {
 
 
         // =====================================================
-        // CHECK DUPLICATE SHOOTER ID
+        // GENERATE NEW SHOOTER ID
+        // =====================================================
+        //
+        // This happens BEFORE deleting rejected records.
+        // Therefore:
+        //
+        // Old rejected ID:
+        // NSA1510201001
+        //
+        // New registration:
+        // NSA1510201002
+        // =====================================================
+
+        const generatedId =
+            await generateShooterId(dobString);
+
+        const shooterId =
+            generatedId.shooterId;
+
+        const shooterIdSequence =
+            generatedId.shooterIdSequence;
+
+
+        // =====================================================
+        // DELETE OLD REJECTED APPLICATIONS
+        // =====================================================
+
+        const rejectedAccounts =
+            matchingAccounts.filter(
+                account =>
+                    account.role === "shooter" &&
+                    account.status === "rejected"
+            );
+
+
+        if (rejectedAccounts.length > 0) {
+            await User.deleteMany({
+                _id: {
+                    $in:
+                        rejectedAccounts.map(
+                            account => account._id
+                        )
+                }
+            });
+        }
+
+
+        // =====================================================
+        // FINAL DUPLICATE SHOOTER ID CHECK
         // =====================================================
 
         const existingShooterId =
             await User.findOne({
                 shooterId
-            });
-
+            })
+                .select("_id")
+                .lean();
 
         if (existingShooterId) {
-            return res.status(400).json({
+            return res.status(409).json({
                 message:
-                    `Shooter ID ${shooterId} already exists.`
+                    "This Shooter ID already exists. Please try registration again."
             });
         }
 
@@ -295,9 +435,7 @@ exports.register = async (req, res) => {
         // FILES
         // =====================================================
 
-        const files =
-            req.files || {};
-
+        const files = req.files || {};
 
         const passportPhoto =
             files.passportPhoto?.[0];
@@ -326,7 +464,6 @@ exports.register = async (req, res) => {
             });
         }
 
-
         if (!identityProof) {
             return res.status(400).json({
                 message:
@@ -334,14 +471,12 @@ exports.register = async (req, res) => {
             });
         }
 
-
         if (!birthCertificate) {
             return res.status(400).json({
                 message:
                     "Birth Certificate is required."
             });
         }
-
 
         if (!schoolShooterId) {
             return res.status(400).json({
@@ -368,14 +503,8 @@ exports.register = async (req, res) => {
         // FILE SIZE
         // =====================================================
 
-        for (
-            const file of uploadedFiles
-        ) {
-
-            if (
-                file.size >
-                DOCUMENT_MAX_BYTES
-            ) {
+        for (const file of uploadedFiles) {
+            if (file.size > DOCUMENT_MAX_BYTES) {
                 return res.status(413).json({
                     message:
                         `${file.originalname} is larger than 2 MB.`
@@ -394,11 +523,7 @@ exports.register = async (req, res) => {
             "application/pdf"
         ];
 
-
-        for (
-            const file of uploadedFiles
-        ) {
-
+        for (const file of uploadedFiles) {
             if (
                 !allowedMimeTypes.includes(
                     file.mimetype
@@ -451,163 +576,160 @@ exports.register = async (req, res) => {
         // CREATE USER
         // =====================================================
 
-        const user =
-            new User({
+        const user = new User({
+            username:
+                normalizedUsername,
 
-                username:
-                    normalizedUsername,
+            password:
+                hashedPassword,
 
-                password:
-                    hashedPassword,
+            role:
+                "shooter",
 
-                role:
-                    "shooter",
+            status:
+                "pending",
 
-                status:
-                    "pending",
+            name:
+                fullName,
 
-                name:
-                    fullName,
+            firstName:
+                String(firstName).trim(),
 
-                firstName:
-                    String(firstName).trim(),
+            lastName:
+                String(lastName).trim(),
 
-                lastName:
-                    String(lastName).trim(),
+            fatherName:
+                String(fatherName).trim(),
 
-                fatherName:
-                    String(fatherName).trim(),
+            motherName:
+                String(motherName).trim(),
 
-                motherName:
-                    String(motherName).trim(),
+            gender:
+                String(gender).trim(),
 
-                gender:
-                    String(gender).trim(),
+            mobile:
+                normalizedPhone,
 
-                mobile:
-                    normalizedPhone,
+            phone:
+                normalizedPhone,
 
-                phone:
-                    normalizedPhone,
+            email:
+                normalizedEmail,
 
-                email:
-                    normalizedEmail,
+            address:
+                String(address).trim(),
 
-                address:
-                    String(address).trim(),
+            className:
+                String(className).trim(),
 
-                className:
-                    String(className).trim(),
+            section:
+                String(section).trim(),
 
-                section:
-                    String(section).trim(),
+            dob:
+                dobString,
 
-                dob:
-                    dobString,
+            dateOfBirth:
+                dobString,
 
-                dateOfBirth:
-                    dobString,
+            shooterId:
+                shooterId,
 
-                shooterId:
-                    shooterId,
+            shooterIdSequence:
+                shooterIdSequence,
 
-                event:
-                    String(event).trim(),
+            event:
+                String(event).trim(),
 
-                category:
-                    String(category).trim(),
+            category:
+                String(category).trim(),
 
-                rejectionReason:
-                    "",
+            rejectionReason:
+                "",
 
-                approvedAt:
-                    null,
+            approvedAt:
+                null,
 
-                rejectedAt:
-                    null,
+            rejectedAt:
+                null,
 
-                // Kept empty intentionally.
-                // The actual registration photo is stored
-                // in documents.passportPhoto.
-                profilePhoto:
-                    "",
+            profilePhoto:
+                "",
 
-                documents: {
+            documents: {
+                passportPhoto: {
+                    data:
+                        passportPhoto.buffer,
 
-                    passportPhoto: {
-                        data:
-                            passportPhoto.buffer,
+                    mimeType:
+                        passportPhoto.mimetype,
 
-                        mimeType:
-                            passportPhoto.mimetype,
+                    originalName:
+                        passportPhoto.originalname,
 
-                        originalName:
-                            passportPhoto.originalname,
+                    size:
+                        passportPhoto.size
+                },
 
-                        size:
-                            passportPhoto.size
-                    },
+                identityProof: {
+                    data:
+                        identityProof.buffer,
 
-                    identityProof: {
-                        data:
-                            identityProof.buffer,
+                    mimeType:
+                        identityProof.mimetype,
 
-                        mimeType:
-                            identityProof.mimetype,
+                    originalName:
+                        identityProof.originalname,
 
-                        originalName:
-                            identityProof.originalname,
+                    size:
+                        identityProof.size
+                },
 
-                        size:
-                            identityProof.size
-                    },
+                birthCertificate: {
+                    data:
+                        birthCertificate.buffer,
 
-                    birthCertificate: {
-                        data:
-                            birthCertificate.buffer,
+                    mimeType:
+                        birthCertificate.mimetype,
 
-                        mimeType:
-                            birthCertificate.mimetype,
+                    originalName:
+                        birthCertificate.originalname,
 
-                        originalName:
-                            birthCertificate.originalname,
+                    size:
+                        birthCertificate.size
+                },
 
-                        size:
-                            birthCertificate.size
-                    },
+                affidavit:
+                    affidavit
+                        ? {
+                            data:
+                                affidavit.buffer,
 
-                    affidavit:
-                        affidavit
-                            ? {
-                                data:
-                                    affidavit.buffer,
+                            mimeType:
+                                affidavit.mimetype,
 
-                                mimeType:
-                                    affidavit.mimetype,
+                            originalName:
+                                affidavit.originalname,
 
-                                originalName:
-                                    affidavit.originalname,
+                            size:
+                                affidavit.size
+                        }
+                        : null,
 
-                                size:
-                                    affidavit.size
-                            }
-                            : null,
+                schoolShooterId: {
+                    data:
+                        schoolShooterId.buffer,
 
-                    schoolShooterId: {
-                        data:
-                            schoolShooterId.buffer,
+                    mimeType:
+                        schoolShooterId.mimetype,
 
-                        mimeType:
-                            schoolShooterId.mimetype,
+                    originalName:
+                        schoolShooterId.originalname,
 
-                        originalName:
-                            schoolShooterId.originalname,
-
-                        size:
-                            schoolShooterId.size
-                    }
+                    size:
+                        schoolShooterId.size
                 }
-            });
+            }
+        });
 
 
         // =====================================================
@@ -622,7 +744,6 @@ exports.register = async (req, res) => {
         // =====================================================
 
         return res.status(201).json({
-
             message:
                 "Registration submitted successfully. Your account is waiting for admin approval.",
 
@@ -638,38 +759,33 @@ exports.register = async (req, res) => {
 
 
     } catch (err) {
-
         console.error(
             "Registration error:",
             err
         );
 
-
-        if (
-            err &&
-            err.code === 11000
-        ) {
-
-            if (
-                err.keyPattern?.username
-            ) {
+        if (err?.code === 11000) {
+            if (err.keyPattern?.username) {
                 return res.status(409).json({
                     message:
                         "An account with this email already exists."
                 });
             }
 
-
-            if (
-                err.keyPattern?.shooterId
-            ) {
+            if (err.keyPattern?.email) {
                 return res.status(409).json({
                     message:
-                        "This Shooter ID already exists."
+                        "An account with this email already exists."
+                });
+            }
+
+            if (err.keyPattern?.shooterId) {
+                return res.status(409).json({
+                    message:
+                        "This Shooter ID already exists. Please try registration again."
                 });
             }
         }
-
 
         return res.status(500).json({
             message:
@@ -686,37 +802,25 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-
         const username =
-            String(
-                req.body?.username || ""
-            )
+            String(req.body?.username || "")
                 .trim()
                 .toLowerCase();
 
-
         const password =
-            String(
-                req.body?.password || ""
-            );
+            String(req.body?.password || "");
 
-
-        if (
-            !username ||
-            !password
-        ) {
+        if (!username || !password) {
             return res.status(400).json({
                 message:
                     "Username and password are required."
             });
         }
 
-
         const user =
             await User.findOne({
                 username
             });
-
 
         if (!user) {
             return res.status(400).json({
@@ -730,19 +834,13 @@ exports.login = async (req, res) => {
         // INITIALISE SECURITY FIELDS
         // =====================================================
 
-        if (
-            user.failedAttempts === undefined
-        ) {
+        if (user.failedAttempts === undefined) {
             user.failedAttempts = 0;
         }
 
-
-        if (
-            user.activeSessionId === undefined
-        ) {
+        if (user.activeSessionId === undefined) {
             user.activeSessionId = null;
         }
-
 
         if (
             user.activeSessionExpiresAt === undefined
@@ -759,18 +857,12 @@ exports.login = async (req, res) => {
             user.lockUntil &&
             user.lockUntil > new Date()
         ) {
-
             const secondsLeft =
                 Math.ceil(
-                    (
-                        user.lockUntil -
-                        new Date()
-                    ) / 1000
+                    (user.lockUntil - new Date()) / 1000
                 );
 
-
             return res.status(429).json({
-
                 message:
                     `Too many failed attempts. Please wait ${secondsLeft} seconds.`,
 
@@ -787,7 +879,6 @@ exports.login = async (req, res) => {
             user.lockUntil &&
             user.lockUntil <= new Date()
         ) {
-
             user.failedAttempts = 0;
             user.lockUntil = null;
 
@@ -805,32 +896,21 @@ exports.login = async (req, res) => {
                 user.password
             );
 
-
         if (!isMatch) {
-
             user.failedAttempts =
                 (user.failedAttempts || 0) + 1;
 
-
             let lockSeconds = 0;
 
-
-            if (
-                user.failedAttempts > 5
-            ) {
-
+            if (user.failedAttempts > 5) {
                 lockSeconds =
                     Math.min(
                         300,
                         10 +
                         (
-                            (
-                                user.failedAttempts -
-                                6
-                            ) * 5
+                            (user.failedAttempts - 6) * 5
                         )
                     );
-
 
                 user.lockUntil =
                     new Date(
@@ -839,16 +919,10 @@ exports.login = async (req, res) => {
                     );
             }
 
-
             await user.save();
 
-
-            if (
-                user.failedAttempts > 5
-            ) {
-
+            if (user.failedAttempts > 5) {
                 return res.status(429).json({
-
                     message:
                         `Too many failed attempts. Please wait ${lockSeconds} seconds.`,
 
@@ -856,7 +930,6 @@ exports.login = async (req, res) => {
                         lockSeconds
                 });
             }
-
 
             return res.status(400).json({
                 message:
@@ -873,20 +946,14 @@ exports.login = async (req, res) => {
             user.role === "shooter" &&
             user.status !== "approved"
         ) {
-
-            if (
-                user.status === "rejected"
-            ) {
-
+            if (user.status === "rejected") {
                 return res.status(403).json({
-
                     message:
                         user.rejectionReason
                             ? `Registration rejected: ${user.rejectionReason}`
                             : "Your registration has been rejected by the admin."
                 });
             }
-
 
             return res.status(403).json({
                 message:
@@ -902,14 +969,11 @@ exports.login = async (req, res) => {
         user.failedAttempts = 0;
         user.lockUntil = null;
 
-
         const sessionId =
             crypto.randomUUID();
 
-
         const sessionExpiresAt =
             getTokenExpiryDate();
-
 
         const token =
             jwt.sign(
@@ -932,19 +996,15 @@ exports.login = async (req, res) => {
                 }
             );
 
-
         user.activeSessionId =
             sessionId;
 
         user.activeSessionExpiresAt =
             sessionExpiresAt;
 
-
         await user.save();
 
-
         return res.json({
-
             message:
                 "Login Successful",
 
@@ -960,12 +1020,10 @@ exports.login = async (req, res) => {
 
 
     } catch (err) {
-
         console.error(
             "Login error:",
             err
         );
-
 
         return res.status(500).json({
             message:
@@ -981,12 +1039,10 @@ exports.login = async (req, res) => {
 
 exports.logout = async (req, res) => {
     try {
-
         const user =
             await User.findById(
                 req.user.id
             );
-
 
         if (
             user &&
@@ -996,26 +1052,18 @@ exports.logout = async (req, res) => {
                     req.user.sessionId
             )
         ) {
-
-            user.activeSessionId =
-                null;
-
-            user.activeSessionExpiresAt =
-                null;
-
+            user.activeSessionId = null;
+            user.activeSessionExpiresAt = null;
 
             await user.save();
         }
-
 
         res.json({
             message:
                 "Logged out successfully"
         });
 
-
     } catch (err) {
-
         res.status(500).json({
             message:
                 err.message
@@ -1030,7 +1078,6 @@ exports.logout = async (req, res) => {
 
 exports.getMyProfile = async (req, res) => {
     try {
-
         const user =
             await User.findById(
                 req.user.id
@@ -1045,18 +1092,12 @@ exports.getMyProfile = async (req, res) => {
                 )
                 .lean();
 
-
         if (!user) {
             return res.status(404).json({
                 message:
                     "User not found"
             });
         }
-
-
-        // =====================================================
-        // GET DOCUMENT METADATA SEPARATELY
-        // =====================================================
 
         const documentUser =
             await User.findById(
@@ -1070,13 +1111,10 @@ exports.getMyProfile = async (req, res) => {
                 )
                 .lean();
 
-
         const storedDocuments =
             documentUser?.documents || {};
 
-
         const documents = {
-
             identityProof:
                 storedDocuments.identityProof
                     ? {
@@ -1090,7 +1128,6 @@ exports.getMyProfile = async (req, res) => {
                             storedDocuments.identityProof.size || 0
                     }
                     : null,
-
 
             birthCertificate:
                 storedDocuments.birthCertificate
@@ -1106,7 +1143,6 @@ exports.getMyProfile = async (req, res) => {
                     }
                     : null,
 
-
             affidavit:
                 storedDocuments.affidavit
                     ? {
@@ -1120,7 +1156,6 @@ exports.getMyProfile = async (req, res) => {
                             storedDocuments.affidavit.size || 0
                     }
                     : null,
-
 
             schoolShooterId:
                 storedDocuments.schoolShooterId
@@ -1137,13 +1172,7 @@ exports.getMyProfile = async (req, res) => {
                     : null
         };
 
-
-        // =====================================================
-        // PROFILE RESPONSE
-        // =====================================================
-
         return res.status(200).json({
-
             success:
                 true,
 
@@ -1233,14 +1262,11 @@ exports.getMyProfile = async (req, res) => {
                 user.role || ""
         });
 
-
     } catch (error) {
-
         console.error(
             "GET MY PROFILE ERROR:",
             error
         );
-
 
         return res.status(500).json({
             success:
@@ -1261,17 +1287,9 @@ exports.getMyProfile = async (req, res) => {
 // =========================================================
 // GET MY PROFILE PHOTO
 // =========================================================
-// IMPORTANT:
-// The old profilePhoto field is intentionally NOT used.
-//
-// The actual photo selected during registration is stored at:
-// documents.passportPhoto.data
-//
-// This endpoint always returns that uploaded photo.
 
 exports.getMyProfilePhoto = async (req, res) => {
     try {
-
         const user =
             await User.findOne({
                 _id:
@@ -1279,11 +1297,9 @@ exports.getMyProfilePhoto = async (req, res) => {
 
                 role:
                     "shooter"
-
             }).select(
                 "documents.passportPhoto"
             );
-
 
         if (!user) {
             return res.status(404).json({
@@ -1292,64 +1308,30 @@ exports.getMyProfilePhoto = async (req, res) => {
             });
         }
 
-
-        // =====================================================
-        // GET ACTUAL PASSPORT PHOTO
-        // =====================================================
-
         const photo =
             user.documents?.passportPhoto;
 
-
-        if (
-            !photo ||
-            !photo.data
-        ) {
-
+        if (!photo || !photo.data) {
             return res.status(404).json({
                 message:
                     "Profile photo not found"
             });
         }
 
-
-        // =====================================================
-        // CONVERT STORED DATA TO BUFFER
-        // =====================================================
-
         let photoBuffer;
 
-
-        if (
-            Buffer.isBuffer(
-                photo.data
-            )
-        ) {
-
-            photoBuffer =
-                photo.data;
-
+        if (Buffer.isBuffer(photo.data)) {
+            photoBuffer = photo.data;
         } else if (
             photo.data.buffer &&
-            Buffer.isBuffer(
-                photo.data.buffer
-            )
+            Buffer.isBuffer(photo.data.buffer)
         ) {
-
-            photoBuffer =
-                photo.data.buffer;
-
+            photoBuffer = photo.data.buffer;
         } else {
-
             try {
-
                 photoBuffer =
-                    Buffer.from(
-                        photo.data
-                    );
-
+                    Buffer.from(photo.data);
             } catch (bufferError) {
-
                 console.error(
                     "Photo buffer conversion error:",
                     bufferError
@@ -1362,29 +1344,17 @@ exports.getMyProfilePhoto = async (req, res) => {
             }
         }
 
-
-        // =====================================================
-        // CHECK PHOTO
-        // =====================================================
-
         if (
             !photoBuffer ||
             photoBuffer.length === 0
         ) {
-
             return res.status(404).json({
                 message:
                     "Profile photo is empty"
             });
         }
 
-
-        // =====================================================
-        // SEND ACTUAL UPLOADED PHOTO
-        // =====================================================
-
         res.set({
-
             "Content-Type":
                 photo.mimeType ||
                 "image/jpeg",
@@ -1402,19 +1372,13 @@ exports.getMyProfilePhoto = async (req, res) => {
                 photoBuffer.length
         });
 
-
-        return res.send(
-            photoBuffer
-        );
-
+        return res.send(photoBuffer);
 
     } catch (error) {
-
         console.error(
             "GET MY PROFILE PHOTO ERROR:",
             error
         );
-
 
         return res.status(500).json({
             message:
@@ -1435,12 +1399,10 @@ exports.getMyProfilePhoto = async (req, res) => {
 
 exports.updateMyProfile = async (req, res) => {
     try {
-
         const user =
             await User.findById(
                 req.user.id
             );
-
 
         if (!user) {
             return res.status(404).json({
@@ -1449,10 +1411,8 @@ exports.updateMyProfile = async (req, res) => {
             });
         }
 
-
         const body =
             req.body || {};
-
 
         const allowedFields = [
             "name",
@@ -1477,17 +1437,11 @@ exports.updateMyProfile = async (req, res) => {
         // USERNAME
         // =====================================================
 
-        if (
-            body.username !== undefined
-        ) {
-
+        if (body.username !== undefined) {
             const username =
-                String(
-                    body.username
-                )
+                String(body.username)
                     .trim()
                     .toLowerCase();
-
 
             if (!username) {
                 return res.status(400).json({
@@ -1496,10 +1450,8 @@ exports.updateMyProfile = async (req, res) => {
                 });
             }
 
-
             const duplicate =
                 await User.findOne({
-
                     username,
 
                     _id: {
@@ -1508,14 +1460,12 @@ exports.updateMyProfile = async (req, res) => {
                     }
                 });
 
-
             if (duplicate) {
                 return res.status(409).json({
                     message:
                         "Username already exists"
                 });
             }
-
 
             user.username =
                 username;
@@ -1526,21 +1476,12 @@ exports.updateMyProfile = async (req, res) => {
         // OTHER FIELDS
         // =====================================================
 
-        for (
-            const field of allowedFields
-        ) {
-
-            if (
-                field === "username"
-            ) {
+        for (const field of allowedFields) {
+            if (field === "username") {
                 continue;
             }
 
-
-            if (
-                body[field] !== undefined
-            ) {
-
+            if (body[field] !== undefined) {
                 user[field] =
                     body[field];
             }
@@ -1551,15 +1492,10 @@ exports.updateMyProfile = async (req, res) => {
         // PASSWORD
         // =====================================================
 
-        if (
-            body.password
-        ) {
-
+        if (body.password) {
             user.password =
                 await bcrypt.hash(
-                    String(
-                        body.password
-                    ),
+                    String(body.password),
                     10
                 );
         }
@@ -1573,31 +1509,26 @@ exports.updateMyProfile = async (req, res) => {
             body.profilePhoto !==
             undefined
         ) {
-
             const photo =
                 String(
                     body.profilePhoto || ""
                 );
 
-
             if (
                 photo &&
-                !/^data:image\/(png|jpe?g|webp|gif);base64,/i
-                    .test(photo)
+                !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(
+                    photo
+                )
             ) {
-
                 return res.status(400).json({
                     message:
                         "Profile photo must be a PNG, JPG, WEBP or GIF image."
                 });
             }
 
-
             if (photo) {
-
                 const commaIndex =
                     photo.indexOf(",");
-
 
                 const base64Part =
                     commaIndex >= 0
@@ -1605,7 +1536,6 @@ exports.updateMyProfile = async (req, res) => {
                             commaIndex + 1
                         )
                         : "";
-
 
                 const estimatedBytes =
                     Math.floor(
@@ -1615,12 +1545,10 @@ exports.updateMyProfile = async (req, res) => {
                         ) / 4
                     );
 
-
                 if (
                     estimatedBytes >
                     PROFILE_PHOTO_MAX_BYTES
                 ) {
-
                     return res.status(413).json({
                         message:
                             "Profile photo is too large. Please choose an image under 2 MB."
@@ -1628,17 +1556,13 @@ exports.updateMyProfile = async (req, res) => {
                 }
             }
 
-
             user.profilePhoto =
                 photo;
         }
 
-
         await user.save();
 
-
         res.json({
-
             message:
                 "Profile updated successfully",
 
@@ -1646,26 +1570,18 @@ exports.updateMyProfile = async (req, res) => {
                 publicUser(user)
         });
 
-
     } catch (err) {
-
         console.error(
             "Update my profile error:",
             err
         );
 
-
-        if (
-            err &&
-            err.code === 11000
-        ) {
-
+        if (err?.code === 11000) {
             return res.status(409).json({
                 message:
                     "Username already exists"
             });
         }
-
 
         res.status(500).json({
             message:
@@ -1681,7 +1597,6 @@ exports.updateMyProfile = async (req, res) => {
 
 exports.changeAdmin = async (req, res) => {
     try {
-
         const {
             currentUsername,
             currentPassword,
@@ -1689,12 +1604,10 @@ exports.changeAdmin = async (req, res) => {
             newPassword
         } = req.body;
 
-
         const user =
             await User.findById(
                 req.user.id
             );
-
 
         if (
             !user ||
@@ -1708,61 +1621,55 @@ exports.changeAdmin = async (req, res) => {
 
         if (
             currentUsername &&
-            String(currentUsername).trim().toLowerCase() !== user.username
+            String(currentUsername)
+                .trim()
+                .toLowerCase() !==
+            user.username
         ) {
             return res.status(400).json({
-                message: "Current username is incorrect."
+                message:
+                    "Current username is incorrect."
             });
         }
 
         if (currentPassword) {
-            const passwordMatches = await bcrypt.compare(
-                String(currentPassword),
-                user.password
-            );
+            const passwordMatches =
+                await bcrypt.compare(
+                    String(currentPassword),
+                    user.password
+                );
 
             if (!passwordMatches) {
                 return res.status(401).json({
-                    message: "Current password is incorrect."
+                    message:
+                        "Current password is incorrect."
                 });
             }
         }
 
-
         if (newUsername) {
-
             user.username =
-                String(
-                    newUsername
-                )
+                String(newUsername)
                     .trim()
                     .toLowerCase();
         }
 
-
         if (newPassword) {
-
             user.password =
                 await bcrypt.hash(
-                    String(
-                        newPassword
-                    ),
+                    String(newPassword),
                     10
                 );
         }
 
-
         await user.save();
-
 
         res.json({
             message:
                 "Admin account updated successfully"
         });
 
-
     } catch (err) {
-
         res.status(500).json({
             message:
                 err.message
@@ -1772,61 +1679,111 @@ exports.changeAdmin = async (req, res) => {
 
 
 // =========================================================
-// FORGOT / RESET ADMIN PASSWORD
+// FORGOT / RESET PASSWORD
 // =========================================================
 
 exports.resetPassword = async (req, res) => {
     try {
-        const accountType = String(req.body?.accountType || "shooter").trim().toLowerCase();
-        const username = String(req.body?.username || "").trim().toLowerCase();
-        const newPassword = String(req.body?.newPassword || "");
-        const confirmPassword = String(req.body?.confirmPassword || "");
+        const accountType =
+            String(
+                req.body?.accountType || "shooter"
+            )
+                .trim()
+                .toLowerCase();
 
-        if (!username || !newPassword || !confirmPassword) {
+        const username =
+            String(
+                req.body?.username || ""
+            )
+                .trim()
+                .toLowerCase();
+
+        const newPassword =
+            String(
+                req.body?.newPassword || ""
+            );
+
+        const confirmPassword =
+            String(
+                req.body?.confirmPassword || ""
+            );
+
+        if (
+            !username ||
+            !newPassword ||
+            !confirmPassword
+        ) {
             return res.status(400).json({
-                message: "Username and new password are required."
+                message:
+                    "Username and new password are required."
             });
         }
 
         if (newPassword.length < 8) {
             return res.status(400).json({
-                message: "Password must be at least 8 characters long."
+                message:
+                    "Password must be at least 8 characters long."
             });
         }
 
-        if (newPassword !== confirmPassword) {
+        if (
+            newPassword !==
+            confirmPassword
+        ) {
             return res.status(400).json({
-                message: "Passwords do not match."
+                message:
+                    "Passwords do not match."
             });
         }
 
-        // Admin reset remains protected by the private recovery code.
+
+        // =====================================================
+        // ADMIN RESET
+        // =====================================================
+
         if (accountType === "admin") {
-            const recoveryCode = String(req.body?.recoveryCode || "");
-            const configuredCode = String(process.env.ADMIN_RECOVERY_CODE || "").trim();
+            const recoveryCode =
+                String(
+                    req.body?.recoveryCode || ""
+                );
+
+            const configuredCode =
+                String(
+                    process.env.ADMIN_RECOVERY_CODE || ""
+                ).trim();
 
             if (
                 !configuredCode ||
-                configuredCode === "CHANGE_THIS_TO_A_PRIVATE_RECOVERY_CODE" ||
+                configuredCode ===
+                    "CHANGE_THIS_TO_A_PRIVATE_RECOVERY_CODE" ||
                 recoveryCode !== configuredCode
             ) {
                 return res.status(403).json({
-                    message: "Invalid recovery code."
+                    message:
+                        "Invalid recovery code."
                 });
             }
 
-            const admin = await User.findOne({
-                username,
-                role: "admin"
-            });
+            const admin =
+                await User.findOne({
+                    username,
+                    role:
+                        "admin"
+                });
 
             if (!admin) {
                 return res.status(404).json({
-                    message: "Admin account not found."
+                    message:
+                        "Admin account not found."
                 });
             }
 
-            admin.password = await bcrypt.hash(newPassword, 10);
+            admin.password =
+                await bcrypt.hash(
+                    newPassword,
+                    10
+                );
+
             admin.failedAttempts = 0;
             admin.lockUntil = null;
             admin.activeSessionId = null;
@@ -1835,40 +1792,81 @@ exports.resetPassword = async (req, res) => {
             await admin.save();
 
             return res.json({
-                message: "Admin password reset successfully. Please login again."
+                message:
+                    "Admin password reset successfully. Please login again."
             });
         }
 
-        // Shooter/user reset uses multiple registered account fields.
-        // This does not expose the password or any stored documents.
-        const email = String(req.body?.email || "").trim().toLowerCase();
-        const phone = String(req.body?.phone || "").trim();
-        const dateOfBirth = String(req.body?.dateOfBirth || "").trim();
 
-        if (!email || !phone || !dateOfBirth) {
+        // =====================================================
+        // SHOOTER RESET
+        // =====================================================
+
+        const email =
+            String(
+                req.body?.email || ""
+            )
+                .trim()
+                .toLowerCase();
+
+        const phone =
+            String(
+                req.body?.phone || ""
+            ).trim();
+
+        const dateOfBirth =
+            String(
+                req.body?.dateOfBirth || ""
+            ).trim();
+
+        if (
+            !email ||
+            !phone ||
+            !dateOfBirth
+        ) {
             return res.status(400).json({
-                message: "Username, email, phone number and date of birth are required."
+                message:
+                    "Username, email, phone number and date of birth are required."
             });
         }
 
-        const shooter = await User.findOne({
-            username,
-            role: "shooter",
-            status: "approved",
-            email,
-            $and: [
-                { $or: [{ phone }, { mobile: phone }] },
-                { $or: [{ dateOfBirth }, { dob: dateOfBirth }] }
-            ]
-        });
+        const shooter =
+            await User.findOne({
+                username,
+                role:
+                    "shooter",
+                status:
+                    "approved",
+                email,
+                $and: [
+                    {
+                        $or: [
+                            { phone },
+                            { mobile: phone }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { dateOfBirth },
+                            { dob: dateOfBirth }
+                        ]
+                    }
+                ]
+            });
 
         if (!shooter) {
             return res.status(400).json({
-                message: "The account details could not be verified."
+                message:
+                    "The account details could not be verified."
             });
         }
 
-        shooter.password = await bcrypt.hash(newPassword, 10);
+        shooter.password =
+            await bcrypt.hash(
+                newPassword,
+                10
+            );
+
         shooter.failedAttempts = 0;
         shooter.lockUntil = null;
         shooter.activeSessionId = null;
@@ -1877,15 +1875,23 @@ exports.resetPassword = async (req, res) => {
         await shooter.save();
 
         return res.json({
-            message: "Password reset successfully. Please login again."
+            message:
+                "Password reset successfully. Please login again."
         });
+
     } catch (err) {
-        console.error("Reset password error:", err);
+        console.error(
+            "Reset password error:",
+            err
+        );
+
         return res.status(500).json({
-            message: "Unable to reset password."
+            message:
+                "Unable to reset password."
         });
     }
 };
+
 
 // =========================================================
 // GET ALL APPROVED SHOOTERS
@@ -1893,7 +1899,6 @@ exports.resetPassword = async (req, res) => {
 
 exports.getShooters = async (req, res) => {
     try {
-
         const shooters =
             await User.find(
                 {
@@ -1915,19 +1920,13 @@ exports.getShooters = async (req, res) => {
                 .allowDiskUse(true)
                 .lean();
 
-
-        res.json(
-            shooters
-        );
-
+        res.json(shooters);
 
     } catch (err) {
-
         console.error(
             "Get shooters error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -1943,7 +1942,6 @@ exports.getShooters = async (req, res) => {
 
 exports.getPendingShooters = async (req, res) => {
     try {
-
         const shooters =
             await User.find(
                 {
@@ -1965,19 +1963,13 @@ exports.getPendingShooters = async (req, res) => {
                 .allowDiskUse(true)
                 .lean();
 
-
-        res.json(
-            shooters
-        );
-
+        res.json(shooters);
 
     } catch (err) {
-
         console.error(
             "Get pending shooters error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -1993,16 +1985,13 @@ exports.getPendingShooters = async (req, res) => {
 
 exports.getShooterDetails = async (req, res) => {
     try {
-
         const shooter =
             await User.findOne({
-
                 _id:
                     req.params.id,
 
                 role:
                     "shooter"
-
             }).select(
                 "-password " +
                 "-failedAttempts " +
@@ -2011,7 +2000,6 @@ exports.getShooterDetails = async (req, res) => {
                 "-activeSessionExpiresAt"
             );
 
-
         if (!shooter) {
             return res.status(404).json({
                 message:
@@ -2019,67 +2007,36 @@ exports.getShooterDetails = async (req, res) => {
             });
         }
 
-
         const result =
             shooter.toObject();
 
-
-        // =====================================================
-        // DOCUMENT AVAILABILITY
-        // =====================================================
-
-        if (
-            result.documents
-        ) {
-
+        if (result.documents) {
             Object.keys(
                 result.documents
-            ).forEach(
-                (key) => {
+            ).forEach(key => {
+                if (result.documents[key]) {
+                    const doc =
+                        result.documents[key];
 
-                    if (
-                        result.documents[key]
-                    ) {
-
-                        const doc =
-                            result.documents[key];
-
-
-                        if (
+                    doc.available =
+                        !!(
                             doc.mimeType ||
                             doc.originalName ||
                             doc.size > 0
-                        ) {
+                        );
 
-                            doc.available =
-                                true;
-
-                        } else {
-
-                            doc.available =
-                                false;
-                        }
-
-
-                        delete doc.data;
-                    }
+                    delete doc.data;
                 }
-            );
+            });
         }
 
-
-        res.json(
-            result
-        );
-
+        res.json(result);
 
     } catch (err) {
-
         console.error(
             "Get shooter details error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -2095,10 +2052,8 @@ exports.getShooterDetails = async (req, res) => {
 
 exports.approveShooter = async (req, res) => {
     try {
-
         const shooter =
             await User.findOne({
-
                 _id:
                     req.params.id,
 
@@ -2109,7 +2064,6 @@ exports.approveShooter = async (req, res) => {
                     "pending"
             });
 
-
         if (!shooter) {
             return res.status(404).json({
                 message:
@@ -2117,28 +2071,21 @@ exports.approveShooter = async (req, res) => {
             });
         }
 
-
         shooter.status =
             "approved";
-
 
         shooter.rejectionReason =
             "";
 
-
         shooter.approvedAt =
             new Date();
-
 
         shooter.rejectedAt =
             null;
 
-
         await shooter.save();
 
-
         res.json({
-
             message:
                 "Shooter approved successfully.",
 
@@ -2149,14 +2096,11 @@ exports.approveShooter = async (req, res) => {
                 shooter.status
         });
 
-
     } catch (err) {
-
         console.error(
             "Approve shooter error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -2172,10 +2116,8 @@ exports.approveShooter = async (req, res) => {
 
 exports.rejectShooter = async (req, res) => {
     try {
-
         const shooter =
             await User.findOne({
-
                 _id:
                     req.params.id,
 
@@ -2186,14 +2128,12 @@ exports.rejectShooter = async (req, res) => {
                     "pending"
             });
 
-
         if (!shooter) {
             return res.status(404).json({
                 message:
                     "Pending shooter not found"
             });
         }
-
 
         const reason =
             String(
@@ -2203,7 +2143,6 @@ exports.rejectShooter = async (req, res) => {
             )
                 .trim();
 
-
         if (!reason) {
             return res.status(400).json({
                 message:
@@ -2211,36 +2150,27 @@ exports.rejectShooter = async (req, res) => {
             });
         }
 
-
         shooter.status =
             "rejected";
-
 
         shooter.rejectionReason =
             reason;
 
-
         shooter.rejectedAt =
             new Date();
-
 
         shooter.approvedAt =
             null;
 
-
         shooter.activeSessionId =
             null;
-
 
         shooter.activeSessionExpiresAt =
             null;
 
-
         await shooter.save();
 
-
         res.json({
-
             message:
                 "Shooter registration rejected.",
 
@@ -2254,14 +2184,11 @@ exports.rejectShooter = async (req, res) => {
                 shooter.rejectionReason
         });
 
-
     } catch (err) {
-
         console.error(
             "Reject shooter error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -2277,12 +2204,10 @@ exports.rejectShooter = async (req, res) => {
 
 exports.getShooterDocument = async (req, res) => {
     try {
-
         const {
             id,
             document
         } = req.params;
-
 
         const allowedDocuments = [
             "passportPhoto",
@@ -2292,33 +2217,27 @@ exports.getShooterDocument = async (req, res) => {
             "schoolShooterId"
         ];
 
-
         if (
             !allowedDocuments.includes(
                 document
             )
         ) {
-
             return res.status(400).json({
                 message:
                     "Invalid document type."
             });
         }
 
-
         const shooter =
             await User.findOne({
-
                 _id:
                     id,
 
                 role:
                     "shooter"
-
             }).select(
                 `documents.${document}`
             );
-
 
         if (!shooter) {
             return res.status(404).json({
@@ -2327,22 +2246,15 @@ exports.getShooterDocument = async (req, res) => {
             });
         }
 
-
         const file =
             shooter.documents?.[document];
 
-
-        if (
-            !file ||
-            !file.data
-        ) {
-
+        if (!file || !file.data) {
             return res.status(404).json({
                 message:
                     "Document not found."
             });
         }
-
 
         res.set(
             "Content-Type",
@@ -2350,30 +2262,20 @@ exports.getShooterDocument = async (req, res) => {
             "application/octet-stream"
         );
 
-
-        if (
-            file.originalName
-        ) {
-
+        if (file.originalName) {
             res.set(
                 "Content-Disposition",
                 `inline; filename="${file.originalName.replace(/"/g, "")}"`
             );
         }
 
-
-        return res.send(
-            file.data
-        );
-
+        return res.send(file.data);
 
     } catch (err) {
-
         console.error(
             "Get document error:",
             err
         );
-
 
         res.status(500).json({
             message:
@@ -2389,24 +2291,18 @@ exports.getShooterDocument = async (req, res) => {
 
 exports.getMyAttendance = async (req, res) => {
     try {
-
-        if (
-            req.user.role !==
-            "shooter"
-        ) {
+        if (req.user.role !== "shooter") {
             return res.status(403).json({
                 message:
                     "Shooter access required"
             });
         }
 
-
         const shooter =
             await User.findById(
                 req.user.id,
                 "name className attendance"
             );
-
 
         if (!shooter) {
             return res.status(404).json({
@@ -2415,11 +2311,8 @@ exports.getMyAttendance = async (req, res) => {
             });
         }
 
-
         const attendance =
-            [
-                ...(shooter.attendance || [])
-            ]
+            [...(shooter.attendance || [])]
                 .sort(
                     (first, second) =>
                         second.date.localeCompare(
@@ -2427,9 +2320,7 @@ exports.getMyAttendance = async (req, res) => {
                         )
                 );
 
-
         res.json({
-
             name:
                 shooter.name,
 
@@ -2439,9 +2330,7 @@ exports.getMyAttendance = async (req, res) => {
             attendance
         });
 
-
     } catch (err) {
-
         res.status(500).json({
             message:
                 err.message
@@ -2456,24 +2345,18 @@ exports.getMyAttendance = async (req, res) => {
 
 exports.getMyDailyScores = async (req, res) => {
     try {
-
-        if (
-            req.user.role !==
-            "shooter"
-        ) {
+        if (req.user.role !== "shooter") {
             return res.status(403).json({
                 message:
                     "Shooter access required"
             });
         }
 
-
         const shooter =
             await User.findById(
                 req.user.id,
                 "name category dailyScores"
             );
-
 
         if (!shooter) {
             return res.status(404).json({
@@ -2482,11 +2365,8 @@ exports.getMyDailyScores = async (req, res) => {
             });
         }
 
-
         const dailyScores =
-            [
-                ...(shooter.dailyScores || [])
-            ]
+            [...(shooter.dailyScores || [])]
                 .sort(
                     (first, second) =>
                         second.date.localeCompare(
@@ -2494,9 +2374,7 @@ exports.getMyDailyScores = async (req, res) => {
                         )
                 );
 
-
         res.json({
-
             name:
                 shooter.name,
 
@@ -2506,9 +2384,7 @@ exports.getMyDailyScores = async (req, res) => {
             dailyScores
         });
 
-
     } catch (error) {
-
         res.status(500).json({
             message:
                 error.message
@@ -2523,7 +2399,6 @@ exports.getMyDailyScores = async (req, res) => {
 
 exports.getMyProfileDocument = async (req, res) => {
     try {
-
         const allowedDocuments = {
             identityProof:
                 "identityProof",
@@ -2538,12 +2413,10 @@ exports.getMyProfileDocument = async (req, res) => {
                 "schoolShooterId"
         };
 
-
         const documentName =
             allowedDocuments[
                 req.params.document
             ];
-
 
         if (!documentName) {
             return res.status(400).json({
@@ -2552,53 +2425,39 @@ exports.getMyProfileDocument = async (req, res) => {
             });
         }
 
-
         const user =
             await User.findOne({
-
                 _id:
                     req.user.id,
 
                 role:
                     "shooter"
-
             }).select(
                 `documents.${documentName}`
             );
-
 
         if (
             !user ||
             !user.documents ||
             !user.documents[documentName]
         ) {
-
             return res.status(404).json({
                 message:
                     "Document not found"
             });
         }
 
-
         const document =
-            user.documents[
-                documentName
-            ];
+            user.documents[documentName];
 
-
-        if (
-            !document.data
-        ) {
-
+        if (!document.data) {
             return res.status(404).json({
                 message:
                     "Document not uploaded"
             });
         }
 
-
         res.set({
-
             "Content-Type":
                 document.mimeType ||
                 "application/pdf",
@@ -2613,19 +2472,15 @@ exports.getMyProfileDocument = async (req, res) => {
                 "no-store"
         });
 
-
         return res.send(
             document.data
         );
 
-
     } catch (error) {
-
         console.error(
             "Get my profile document error:",
             error
         );
-
 
         return res.status(500).json({
             message:

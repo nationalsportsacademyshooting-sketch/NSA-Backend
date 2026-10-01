@@ -39,7 +39,6 @@ const documentSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
     {
-
         // =====================================================
         // LOGIN
         // =====================================================
@@ -123,13 +122,11 @@ const userSchema = new mongoose.Schema(
             trim: true
         },
 
-        // Used by existing admin-created shooter system
         mobile: {
             type: String,
             default: ""
         },
 
-        // Used by new registration system
         phone: {
             type: String,
             default: ""
@@ -140,13 +137,11 @@ const userSchema = new mongoose.Schema(
             default: ""
         },
 
-        // Existing field
         dob: {
             type: String,
             default: ""
         },
 
-        // Used by new registration system
         dateOfBirth: {
             type: String,
             default: ""
@@ -189,6 +184,12 @@ const userSchema = new mongoose.Schema(
             default: null
         },
 
+        shooterIdSequence: {
+            type: Number,
+            default: null,
+            sparse: true
+        },
+
         event: {
             type: String,
             default: ""
@@ -220,7 +221,6 @@ const userSchema = new mongoose.Schema(
         // =====================================================
 
         documents: {
-
             passportPhoto: {
                 type: documentSchema,
                 default: null
@@ -236,7 +236,6 @@ const userSchema = new mongoose.Schema(
                 default: null
             },
 
-            // OPTIONAL
             affidavit: {
                 type: documentSchema,
                 default: null
@@ -246,7 +245,6 @@ const userSchema = new mongoose.Schema(
                 type: documentSchema,
                 default: null
             }
-
         },
 
 
@@ -333,19 +331,64 @@ const userSchema = new mongoose.Schema(
                 }
             }
         ]
-
     },
     {
         timestamps: true
     }
 );
 
-// Query/sort indexes used by the admin and attendance pages.
-// These prevent MongoDB from performing large in-memory sorts.
-userSchema.index({ role: 1, status: 1, name: 1 });
-userSchema.index({ role: 1, status: 1, createdAt: -1 });
-userSchema.index({ email: 1 });
-userSchema.index({ "attendance.date": 1 });
+
+// ============================================================
+// INDEXES
+// ============================================================
+
+// Admin shooter queries
+userSchema.index({
+    role: 1,
+    status: 1,
+    name: 1
+});
+
+userSchema.index({
+    role: 1,
+    status: 1,
+    createdAt: -1
+});
+
+
+// Email lookup
+//
+// NOT unique intentionally.
+// This allows a rejected applicant to register again
+// using the same email.
+userSchema.index({
+    email: 1
+});
+
+
+// Attendance lookup
+userSchema.index({
+    "attendance.date": 1
+});
+
+
+// Shooter ID generation / lookup
+userSchema.index({
+    role: 1,
+    dateOfBirth: 1,
+    shooterIdSequence: -1
+});
+
+
+// Shooter ID lookup
+userSchema.index({
+    shooterId: 1
+});
+
+
+// ============================================================
+// MODEL
+// ============================================================
 
 module.exports = mongoose.model(
     "User",
