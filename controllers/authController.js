@@ -1775,16 +1775,16 @@ exports.changeAdmin = async (req, res) => {
 // FORGOT / RESET ADMIN PASSWORD
 // =========================================================
 
-exports.resetAdminPassword = async (req, res) => {
+exports.resetPassword = async (req, res) => {
     try {
+        const accountType = String(req.body?.accountType || "shooter").trim().toLowerCase();
         const username = String(req.body?.username || "").trim().toLowerCase();
-        const recoveryCode = String(req.body?.recoveryCode || "");
         const newPassword = String(req.body?.newPassword || "");
         const confirmPassword = String(req.body?.confirmPassword || "");
 
-        if (!username || !recoveryCode || !newPassword || !confirmPassword) {
+        if (!username || !newPassword || !confirmPassword) {
             return res.status(400).json({
-                message: "Username, recovery code and new password are required."
+                message: "Username and new password are required."
             });
         }
 
@@ -1800,44 +1800,89 @@ exports.resetAdminPassword = async (req, res) => {
             });
         }
 
-        const configuredCode = String(process.env.ADMIN_RECOVERY_CODE || "").trim();
+        // Admin reset remains protected by the private recovery code.
+        if (accountType === "admin") {
+            const recoveryCode = String(req.body?.recoveryCode || "");
+            const configuredCode = String(process.env.ADMIN_RECOVERY_CODE || "").trim();
 
-        if (
-            !configuredCode ||
-            configuredCode === "CHANGE_THIS_TO_A_PRIVATE_RECOVERY_CODE" ||
-            recoveryCode !== configuredCode
-        ) {
-            return res.status(403).json({
-                message: "Invalid recovery code."
+            if (
+                !configuredCode ||
+                configuredCode === "CHANGE_THIS_TO_A_PRIVATE_RECOVERY_CODE" ||
+                recoveryCode !== configuredCode
+            ) {
+                return res.status(403).json({
+                    message: "Invalid recovery code."
+                });
+            }
+
+            const admin = await User.findOne({
+                username,
+                role: "admin"
+            });
+
+            if (!admin) {
+                return res.status(404).json({
+                    message: "Admin account not found."
+                });
+            }
+
+            admin.password = await bcrypt.hash(newPassword, 10);
+            admin.failedAttempts = 0;
+            admin.lockUntil = null;
+            admin.activeSessionId = null;
+            admin.activeSessionExpiresAt = null;
+
+            await admin.save();
+
+            return res.json({
+                message: "Admin password reset successfully. Please login again."
             });
         }
 
-        const admin = await User.findOne({
+        // Shooter/user reset uses multiple registered account fields.
+        // This does not expose the password or any stored documents.
+        const email = String(req.body?.email || "").trim().toLowerCase();
+        const phone = String(req.body?.phone || "").trim();
+        const dateOfBirth = String(req.body?.dateOfBirth || "").trim();
+
+        if (!email || !phone || !dateOfBirth) {
+            return res.status(400).json({
+                message: "Username, email, phone number and date of birth are required."
+            });
+        }
+
+        const shooter = await User.findOne({
             username,
-            role: "admin"
+            role: "shooter",
+            status: "approved",
+            email,
+            $and: [
+                { $or: [{ phone }, { mobile: phone }] },
+                { $or: [{ dateOfBirth }, { dob: dateOfBirth }] }
+            ]
         });
 
-        if (!admin) {
-            return res.status(404).json({
-                message: "Admin account not found."
+        if (!shooter) {
+            return res.status(400).json({
+                message: "The account details could not be verified."
             });
         }
 
-        admin.password = await bcrypt.hash(newPassword, 10);
-        admin.failedAttempts = 0;
-        admin.lockUntil = null;
-        admin.activeSessionId = null;
-        admin.activeSessionExpiresAt = null;
+        shooter.password = await bcrypt.hash(newPassword, 10);
+        shooter.failedAttempts = 0;
+        shooter.lockUntil = null;
+        shooter.activeSessionId = null;
+        shooter.activeSessionExpiresAt = null;
 
-        await admin.save();
+        await shooter.save();
 
-        res.json({
-            message: "Admin password reset successfully. Please login again."
+        return res.json({
+            message: "Password reset successfully. Please login again."
         });
     } catch (err) {
-        console.error("Reset admin password error:", err);
-        res.status(500).json({
-            message: err.message || "Unable to reset password."
+        console.error("Reset password error:", err);
+        return res.status(500).json({
+            message: "Unable to reset password."
         });
     }
 };
@@ -1864,7 +1909,8 @@ exports.getShooters = async (req, res) => {
                 .sort({
                     name:
                         1
-                });
+                })                .allowDiskUse(true)
+;
 
 
         res.json(
@@ -1910,7 +1956,8 @@ exports.getPendingShooters = async (req, res) => {
                 .sort({
                     createdAt:
                         -1
-                });
+                })                .allowDiskUse(true)
+;
 
 
         res.json(

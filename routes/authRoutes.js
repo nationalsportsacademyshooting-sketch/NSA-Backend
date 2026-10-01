@@ -94,7 +94,7 @@ router.post(
 
 router.post(
     "/forgot-password",
-    authController.resetAdminPassword
+    authController.resetPassword
 );
 
 
