@@ -1,54 +1,90 @@
 const mongoose = require("mongoose");
 
-
-// ============================================================
-// DOCUMENT SCHEMA
-// ============================================================
-
 const documentSchema = new mongoose.Schema(
     {
+        filename: {
+            type: String,
+            default: ""
+        },
         originalName: {
             type: String,
             default: ""
         },
-
         mimeType: {
             type: String,
             default: ""
         },
-
         size: {
             type: Number,
             default: 0
         },
-
         data: {
             type: Buffer,
+            default: undefined
+        }
+    },
+    { _id: false }
+);
+
+const attendanceSchema = new mongoose.Schema(
+    {
+        date: {
+            type: Date,
+            required: true
+        },
+        status: {
+            type: String,
+            enum: ["present", "absent", "leave"],
+            required: true
+        },
+        markedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+        remarks: {
+            type: String,
+            default: ""
+        }
+    },
+    { _id: false }
+);
+
+const dailyScoreSchema = new mongoose.Schema(
+    {
+        date: {
+            type: Date,
+            required: true
+        },
+        score: {
+            type: Number,
+            default: 0
+        },
+        maximumScore: {
+            type: Number,
+            default: 0
+        },
+        remarks: {
+            type: String,
+            default: ""
+        },
+        enteredBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             default: null
         }
     },
-    {
-        _id: false
-    }
+    { _id: false }
 );
-
-
-// ============================================================
-// USER SCHEMA
-// ============================================================
 
 const userSchema = new mongoose.Schema(
     {
-        // =====================================================
-        // LOGIN
-        // =====================================================
-
         username: {
             type: String,
             required: true,
             unique: true,
-            trim: true,
-            lowercase: true
+            lowercase: true,
+            trim: true
         },
 
         password: {
@@ -56,95 +92,83 @@ const userSchema = new mongoose.Schema(
             required: true
         },
 
-
-        // =====================================================
-        // ACCOUNT
-        // =====================================================
-
         role: {
             type: String,
-            enum: [
-                "admin",
-                "shooter"
-            ],
-            default: "shooter"
+            enum: ["admin", "shooter"],
+            default: "shooter",
+            required: true
         },
 
         status: {
             type: String,
-            enum: [
-                "pending",
-                "approved",
-                "rejected"
-            ],
-            default: "approved"
-        },
-
-
-        // =====================================================
-        // BASIC DETAILS
-        // =====================================================
-
-        name: {
-            type: String,
-            default: ""
+            enum: ["pending", "approved", "rejected"],
+            default: "pending"
         },
 
         firstName: {
             type: String,
+            trim: true,
             default: ""
         },
 
         lastName: {
             type: String,
+            trim: true,
+            default: ""
+        },
+
+        name: {
+            type: String,
+            trim: true,
             default: ""
         },
 
         fatherName: {
             type: String,
+            trim: true,
             default: ""
         },
 
         motherName: {
             type: String,
-            default: ""
-        },
-
-
-        // =====================================================
-        // PERSONAL DETAILS
-        // =====================================================
-
-        email: {
-            type: String,
-            default: "",
-            lowercase: true,
-            trim: true
-        },
-
-        mobile: {
-            type: String,
-            default: ""
-        },
-
-        phone: {
-            type: String,
+            trim: true,
             default: ""
         },
 
         gender: {
             type: String,
+            trim: true,
+            default: ""
+        },
+
+        email: {
+            type: String,
+            lowercase: true,
+            trim: true,
+            default: ""
+        },
+
+        mobile: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        phone: {
+            type: String,
+            trim: true,
             default: ""
         },
 
         dob: {
             type: String,
+            trim: true,
             default: ""
         },
 
         dateOfBirth: {
-            type: String,
-            default: ""
+            type: Date,
+            default: null
         },
 
         age: {
@@ -154,36 +178,38 @@ const userSchema = new mongoose.Schema(
 
         address: {
             type: String,
+            trim: true,
             default: ""
         },
 
-
-        // =====================================================
-        // SCHOOL DETAILS
-        // =====================================================
-
         className: {
             type: String,
+            trim: true,
             default: ""
         },
 
         section: {
             type: String,
+            trim: true,
             default: ""
         },
-
-
-        // =====================================================
-        // SHOOTING DETAILS
-        // =====================================================
 
         shooterId: {
             type: String,
             unique: true,
             sparse: true,
-            default: null
+            trim: true
         },
 
+        /*
+         * Sequence used for IDs such as:
+         * NSA1510201001
+         * NSA1510201002
+         * NSA1510201003
+         *
+         * It is NOT unique globally because the sequence restarts
+         * for a different DOB prefix.
+         */
         shooterIdSequence: {
             type: Number,
             default: null,
@@ -192,33 +218,26 @@ const userSchema = new mongoose.Schema(
 
         event: {
             type: String,
+            trim: true,
             default: ""
         },
 
         category: {
             type: String,
+            trim: true,
             default: ""
         },
 
         assignedTimeSlot: {
             type: String,
+            trim: true,
             default: ""
         },
-
-
-        // =====================================================
-        // PROFILE PHOTO
-        // =====================================================
 
         profilePhoto: {
-            type: String,
-            default: ""
+            type: documentSchema,
+            default: null
         },
-
-
-        // =====================================================
-        // REGISTRATION DOCUMENTS
-        // =====================================================
 
         documents: {
             passportPhoto: {
@@ -247,11 +266,6 @@ const userSchema = new mongoose.Schema(
             }
         },
 
-
-        // =====================================================
-        // ADMIN APPROVAL
-        // =====================================================
-
         rejectionReason: {
             type: String,
             default: ""
@@ -267,12 +281,12 @@ const userSchema = new mongoose.Schema(
             default: null
         },
 
+        lastLogin: {
+            type: Date,
+            default: null
+        },
 
-        // =====================================================
-        // LOGIN SECURITY
-        // =====================================================
-
-        failedAttempts: {
+        loginAttempts: {
             type: Number,
             default: 0
         },
@@ -282,55 +296,15 @@ const userSchema = new mongoose.Schema(
             default: null
         },
 
-        activeSessionId: {
-            type: String,
-            default: null
+        attendance: {
+            type: [attendanceSchema],
+            default: []
         },
 
-        activeSessionExpiresAt: {
-            type: Date,
-            default: null
-        },
-
-
-        // =====================================================
-        // ATTENDANCE
-        // =====================================================
-
-        attendance: [
-            {
-                date: {
-                    type: String
-                },
-
-                status: {
-                    type: String
-                }
-            }
-        ],
-
-
-        // =====================================================
-        // DAILY SCORES
-        // =====================================================
-
-        dailyScores: [
-            {
-                date: {
-                    type: String
-                },
-
-                series: {
-                    type: [Number],
-                    default: []
-                },
-
-                total: {
-                    type: Number,
-                    default: 0
-                }
-            }
-        ]
+        dailyScores: {
+            type: [dailyScoreSchema],
+            default: []
+        }
     },
     {
         timestamps: true
@@ -338,41 +312,49 @@ const userSchema = new mongoose.Schema(
 );
 
 
-// ============================================================
-// INDEXES
-// ============================================================
+/* =========================================================
+   INDEXES
+   ========================================================= */
 
-// Admin shooter queries
+/*
+ * Used for admin shooter filtering/search.
+ */
 userSchema.index({
     role: 1,
     status: 1,
     name: 1
 });
 
+/*
+ * Used for recent shooter/admin records.
+ */
 userSchema.index({
     role: 1,
     status: 1,
     createdAt: -1
 });
 
-
-// Email lookup
-//
-// NOT unique intentionally.
-// This allows a rejected applicant to register again
-// using the same email.
+/*
+ * Email lookup.
+ *
+ * NOT unique because rejected applications must be allowed
+ * to exist temporarily and the same email can be registered
+ * again after rejection.
+ */
 userSchema.index({
     email: 1
 });
 
-
-// Attendance lookup
+/*
+ * Attendance date lookup.
+ */
 userSchema.index({
     "attendance.date": 1
 });
 
-
-// Shooter ID generation / lookup
+/*
+ * Helps with shooter ID sequence-related queries.
+ */
 userSchema.index({
     role: 1,
     dateOfBirth: 1,
@@ -380,17 +362,20 @@ userSchema.index({
 });
 
 
-// Shooter ID lookup
-userSchema.index({
-    shooterId: 1
-});
+/*
+ * IMPORTANT:
+ *
+ * DO NOT add:
+ *
+ * userSchema.index({ shooterId: 1 });
+ *
+ * because shooterId already has:
+ *
+ * unique: true,
+ * sparse: true
+ *
+ * above, which creates the required index.
+ */
 
 
-// ============================================================
-// MODEL
-// ============================================================
-
-module.exports = mongoose.model(
-    "User",
-    userSchema
-);
+module.exports = mongoose.model("User", userSchema);
