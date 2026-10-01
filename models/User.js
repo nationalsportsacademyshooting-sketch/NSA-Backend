@@ -109,9 +109,9 @@ const dailyScoreSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
     {
-        /* -------------------------------------------------
+        /* =================================================
            LOGIN
-        ------------------------------------------------- */
+        ================================================= */
 
         username: {
             type: String,
@@ -140,9 +140,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            PERSONAL DETAILS
-        ------------------------------------------------- */
+        ================================================= */
 
         firstName: {
             type: String,
@@ -222,9 +222,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            SCHOOL DETAILS
-        ------------------------------------------------- */
+        ================================================= */
 
         className: {
             type: String,
@@ -239,14 +239,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            SHOOTER ID
-           
-           Example:
-           NSA1510201001
-           NSA1510201002
-           NSA1510201003
-        ------------------------------------------------- */
+        ================================================= */
 
         shooterId: {
             type: String,
@@ -262,9 +257,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            SHOOTING DETAILS
-        ------------------------------------------------- */
+        ================================================= */
 
         event: {
             type: String,
@@ -285,11 +280,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            PROFILE PHOTO
-           
-           Stored as a document object.
-        ------------------------------------------------- */
+        ================================================= */
 
         profilePhoto: {
             type: documentSchema,
@@ -297,9 +290,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
-           REQUIRED / OPTIONAL DOCUMENTS
-        ------------------------------------------------- */
+        /* =================================================
+           DOCUMENTS
+        ================================================= */
 
         documents: {
             passportPhoto: {
@@ -329,9 +322,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            APPROVAL / REJECTION
-        ------------------------------------------------- */
+        ================================================= */
 
         rejectionReason: {
             type: String,
@@ -349,9 +342,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            LOGIN SECURITY
-        ------------------------------------------------- */
+        ================================================= */
 
         lastLogin: {
             type: Date,
@@ -369,9 +362,9 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            ATTENDANCE
-        ------------------------------------------------- */
+        ================================================= */
 
         attendance: {
             type: [attendanceSchema],
@@ -379,16 +372,15 @@ const userSchema = new mongoose.Schema(
         },
 
 
-        /* -------------------------------------------------
+        /* =================================================
            DAILY SCORES
-        ------------------------------------------------- */
+        ================================================= */
 
         dailyScores: {
             type: [dailyScoreSchema],
             default: []
         }
     },
-
     {
         timestamps: true
     }
@@ -399,49 +391,26 @@ const userSchema = new mongoose.Schema(
    INDEXES
    ========================================================= */
 
-/*
- * Admin shooter filtering/search.
- */
 userSchema.index({
     role: 1,
     status: 1,
     name: 1
 });
 
-
-/*
- * Recent admin/shooter records.
- */
 userSchema.index({
     role: 1,
     status: 1,
     createdAt: -1
 });
 
-
-/*
- * Email lookup.
- *
- * NOT unique because:
- * - rejected applications can be registered again
- * - approved/pending checking is handled by controller logic
- */
 userSchema.index({
     email: 1
 });
 
-
-/*
- * Attendance date lookup.
- */
 userSchema.index({
     "attendance.date": 1
 });
 
-
-/*
- * Shooter ID sequence-related lookup.
- */
 userSchema.index({
     role: 1,
     dateOfBirth: 1,
@@ -457,13 +426,15 @@ userSchema.index({
 
    userSchema.index({ shooterId: 1 });
 
-   shooterId already contains:
+   The following already creates the unique sparse
+   shooterId index:
 
-   unique: true,
-   sparse: true
+   shooterId: {
+       type: String,
+       unique: true,
+       sparse: true
+   }
 
-   so Mongoose already creates the required
-   unique sparse index for shooterId.
    ========================================================= */
 
 

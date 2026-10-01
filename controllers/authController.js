@@ -52,8 +52,18 @@ function escapeRegex(value) {
 // 2nd shooter -> NSA1510201002
 // 3rd shooter -> NSA1510201003
 //
-// Existing rejected applications are included while calculating
-// the next number. Therefore, re-registration gets a NEW ID.
+// Rejected applications are included while calculating the
+// next sequence number. Therefore, re-registration gets a
+// NEW Shooter ID.
+//
+// Example:
+//
+// Old rejected:
+// NSA1510201001
+//
+// New registration:
+// NSA1510201002
+//
 // =========================================================
 
 async function generateShooterId(dobString) {
@@ -74,23 +84,25 @@ async function generateShooterId(dobString) {
     let highestSequence = 0;
 
     for (const shooter of existingShooters) {
-        // New records
-        if (
-            Number.isFinite(
-                Number(shooter.shooterIdSequence)
-            )
-        ) {
+        // New records using shooterIdSequence
+        const storedSequence = Number(
+            shooter.shooterIdSequence
+        );
+
+        if (Number.isFinite(storedSequence)) {
             highestSequence = Math.max(
                 highestSequence,
-                Number(shooter.shooterIdSequence)
+                storedSequence
             );
         }
 
         // Existing/old records without shooterIdSequence
         if (shooter.shooterId) {
-            const suffix = shooter.shooterId.slice(prefix.length);
+            const suffix =
+                shooter.shooterId.slice(prefix.length);
 
-            const parsed = Number.parseInt(suffix, 10);
+            const parsed =
+                Number.parseInt(suffix, 10);
 
             if (Number.isFinite(parsed)) {
                 highestSequence = Math.max(
@@ -176,7 +188,8 @@ exports.register = async (req, res) => {
             !confirmPassword
         ) {
             return res.status(400).json({
-                message: "Please fill all required fields."
+                message:
+                    "Please fill all required fields."
             });
         }
 
@@ -190,7 +203,8 @@ exports.register = async (req, res) => {
             declaration !== "true"
         ) {
             return res.status(400).json({
-                message: "You must accept the declaration."
+                message:
+                    "You must accept the declaration."
             });
         }
 
@@ -224,7 +238,8 @@ exports.register = async (req, res) => {
 
         if (!emailRegex.test(normalizedEmail)) {
             return res.status(400).json({
-                message: "Please enter a valid email address."
+                message:
+                    "Please enter a valid email address."
             });
         }
 
@@ -265,7 +280,8 @@ exports.register = async (req, res) => {
             String(confirmPassword)
         ) {
             return res.status(400).json({
-                message: "Passwords do not match."
+                message:
+                    "Passwords do not match."
             });
         }
 
@@ -279,7 +295,8 @@ exports.register = async (req, res) => {
 
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dobString)) {
             return res.status(400).json({
-                message: "Invalid date of birth."
+                message:
+                    "Invalid date of birth."
             });
         }
 
@@ -299,7 +316,8 @@ exports.register = async (req, res) => {
             dobDate.getDate() !== Number(day)
         ) {
             return res.status(400).json({
-                message: "Invalid date of birth."
+                message:
+                    "Invalid date of birth."
             });
         }
 
@@ -312,9 +330,8 @@ exports.register = async (req, res) => {
         // PENDING  -> BLOCK
         // REJECTED -> ALLOW NEW REGISTRATION
         //
-        // IMPORTANT:
-        // The new Shooter ID is generated BEFORE the rejected
-        // record is deleted, so the old ID sequence is consumed.
+        // A rejected application is kept until the new
+        // registration has passed all validation.
         // =====================================================
 
         const matchingAccounts =
@@ -368,14 +385,10 @@ exports.register = async (req, res) => {
         // GENERATE NEW SHOOTER ID
         // =====================================================
         //
-        // This happens BEFORE deleting rejected records.
-        // Therefore:
+        // IMPORTANT:
+        // This happens BEFORE deleting the rejected record.
         //
-        // Old rejected ID:
-        // NSA1510201001
-        //
-        // New registration:
-        // NSA1510201002
+        // Therefore an old rejected ID is never reused.
         // =====================================================
 
         const generatedId =
@@ -386,49 +399,6 @@ exports.register = async (req, res) => {
 
         const shooterIdSequence =
             generatedId.shooterIdSequence;
-
-
-        // =====================================================
-        // DELETE OLD REJECTED APPLICATIONS
-        // =====================================================
-
-        const rejectedAccounts =
-            matchingAccounts.filter(
-                account =>
-                    account.role === "shooter" &&
-                    account.status === "rejected"
-            );
-
-
-        if (rejectedAccounts.length > 0) {
-            await User.deleteMany({
-                _id: {
-                    $in:
-                        rejectedAccounts.map(
-                            account => account._id
-                        )
-                }
-            });
-        }
-
-
-        // =====================================================
-        // FINAL DUPLICATE SHOOTER ID CHECK
-        // =====================================================
-
-        const existingShooterId =
-            await User.findOne({
-                shooterId
-            })
-                .select("_id")
-                .lean();
-
-        if (existingShooterId) {
-            return res.status(409).json({
-                message:
-                    "This Shooter ID already exists. Please try registration again."
-            });
-        }
 
 
         // =====================================================
@@ -548,6 +518,57 @@ exports.register = async (req, res) => {
             return res.status(413).json({
                 message:
                     "Passport photo must be 2 MB or smaller."
+            });
+        }
+
+
+        // =====================================================
+        // DELETE OLD REJECTED APPLICATIONS
+        // =====================================================
+        //
+        // IMPORTANT:
+        // This is deliberately AFTER all new registration
+        // file validation.
+        //
+        // If the new registration has an invalid/missing file,
+        // the old rejected application remains available.
+        // =====================================================
+
+        const rejectedAccounts =
+            matchingAccounts.filter(
+                account =>
+                    account.role === "shooter" &&
+                    account.status === "rejected"
+            );
+
+
+        if (rejectedAccounts.length > 0) {
+            await User.deleteMany({
+                _id: {
+                    $in:
+                        rejectedAccounts.map(
+                            account => account._id
+                        )
+                }
+            });
+        }
+
+
+        // =====================================================
+        // FINAL DUPLICATE SHOOTER ID CHECK
+        // =====================================================
+
+        const existingShooterId =
+            await User.findOne({
+                shooterId
+            })
+                .select("_id")
+                .lean();
+
+        if (existingShooterId) {
+            return res.status(409).json({
+                message:
+                    "This Shooter ID already exists. Please try registration again."
             });
         }
 
