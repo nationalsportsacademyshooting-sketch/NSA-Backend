@@ -20,10 +20,8 @@ app.set("trust proxy", 1);
 
 const allowedOrigins = [
     "http://127.0.0.1:5500",
-    "http://localhost:5500"
-
-    // If your frontend is deployed online, add its URL here:
-    // "https://your-frontend-domain.com"
+    "http://localhost:5500",
+    "https://nationalsportsacademy.netlify.app"
 ];
 
 const corsOptions = {
