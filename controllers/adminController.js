@@ -2,6 +2,8 @@ const User = require("../models/User");
 const Booking = require("../models/booking");
 const bcrypt = require("bcrypt");
 
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+
 
 // ============================================================
 // HELPER: BASE64 TO BUFFER
@@ -25,6 +27,15 @@ function convertBase64ToBuffer(base64) {
         base64,
         "base64"
     );
+}
+
+function base64ByteSize(value) {
+    if (!value) return 0;
+    let raw = String(value);
+    if (raw.includes(",")) raw = raw.split(",")[1];
+    raw = raw.replace(/\s/g, "");
+    const padding = raw.endsWith("==") ? 2 : raw.endsWith("=") ? 1 : 0;
+    return Math.max(0, Math.floor((raw.length * 3) / 4) - padding);
 }
 
 
@@ -68,6 +79,13 @@ exports.createShooter = async (req, res) => {
             return res.status(400).json({
                 message:
                     "Username already exists"
+            });
+        }
+
+
+        if (profilePhoto && base64ByteSize(profilePhoto) > MAX_UPLOAD_BYTES) {
+            return res.status(413).json({
+                message: "Profile photo must be 2 MB or smaller."
             });
         }
 
@@ -1126,6 +1144,19 @@ if (
 
 
         // ====================================================
+        // PROFILE PHOTO
+        // ====================================================
+        if (req.body.profilePhoto) {
+            if (base64ByteSize(req.body.profilePhoto) > MAX_UPLOAD_BYTES) {
+                return res.status(413).json({
+                    message: "Profile photo must be 2 MB or smaller."
+                });
+            }
+            shooter.profilePhoto = String(req.body.profilePhoto);
+        }
+
+
+        // ====================================================
         // PASSWORD
         // Blank = keep existing password
         // ====================================================
@@ -1167,6 +1198,11 @@ if (
             req.body.passportPhoto &&
             req.body.passportPhoto.data
         ) {
+            if (base64ByteSize(req.body.passportPhoto.data) > MAX_UPLOAD_BYTES) {
+                return res.status(413).json({
+                    message: "Passport photo must be 2 MB or smaller."
+                });
+            }
 
             shooter.documents.passportPhoto = {
 

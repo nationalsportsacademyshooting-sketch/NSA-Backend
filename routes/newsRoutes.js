@@ -4,7 +4,10 @@ const multer = require("multer");
 const {
     createNewsEvent,
     getNewsEvents,
-    deleteNewsEvent
+    deleteNewsEvent,
+    updateNewsEvent,
+    getNewsImage,
+    getNewsFile
 } = require("../controllers/newsController");
 
 const auth = require("../middleware/authMiddleware");
@@ -23,7 +26,7 @@ const upload = multer({
     storage: storage,
 
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10 MB
+        fileSize: 2 * 1024 * 1024 // 2 MB
     },
 
     fileFilter: (req, file, cb) => {
@@ -102,6 +105,26 @@ router.get(
 
 
 // ==============================
+ // NEWS MEDIA
+ // ==============================
+router.get("/:id/image", auth, getNewsImage);
+router.get("/:id/file", auth, getNewsFile);
+
+// ==============================
+// ADMIN - UPDATE NEWS / EVENT
+// ==============================
+router.put(
+    "/:id",
+    auth,
+    admin,
+    upload.fields([
+        { name: "image", maxCount: 1 },
+        { name: "file", maxCount: 1 }
+    ]),
+    updateNewsEvent
+);
+
+// ==============================
 // ADMIN - DELETE NEWS / EVENT
 // ==============================
 
@@ -126,7 +149,7 @@ router.use((error, req, res, next) => {
         if (error.code === "LIMIT_FILE_SIZE") {
 
             return res.status(400).json({
-                message: "File is too large. Maximum size is 10 MB."
+                message: "File is too large. Maximum size is 2 MB."
             });
         }
 

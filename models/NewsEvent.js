@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const storageDb = require("../storageDb");
 
 const newsEventSchema = new mongoose.Schema(
     {
@@ -43,4 +44,6 @@ const newsEventSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("NewsEvent", newsEventSchema);
+newsEventSchema.index({ published: 1, createdAt: -1 });
+
+module.exports = storageDb.models.NewsEvent || storageDb.model("NewsEvent", newsEventSchema);

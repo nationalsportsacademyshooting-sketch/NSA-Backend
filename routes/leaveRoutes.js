@@ -7,4 +7,6 @@ router.post("/",auth,controller.createLeave);
 router.get("/my",auth,controller.getMyLeaves);
 router.get("/",auth,admin,controller.getAllLeaves);
 router.put("/:id/status",auth,admin,controller.updateLeaveStatus);
+router.put("/:id",auth,admin,controller.updateLeave);
+router.delete("/:id",auth,admin,controller.deleteLeave);
 module.exports=router;

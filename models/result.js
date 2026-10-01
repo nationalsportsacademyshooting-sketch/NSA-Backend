@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const storageDb = require("../storageDb");
 
 const resultSchema = new mongoose.Schema(
     {
@@ -40,4 +41,4 @@ const resultSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("Result", resultSchema);
+module.exports = storageDb.models.Result || storageDb.model("Result", resultSchema);

@@ -340,6 +340,12 @@ const userSchema = new mongoose.Schema(
     }
 );
 
+// Query/sort indexes used by the admin and attendance pages.
+// These prevent MongoDB from performing large in-memory sorts.
+userSchema.index({ role: 1, status: 1, name: 1 });
+userSchema.index({ role: 1, status: 1, createdAt: -1 });
+userSchema.index({ email: 1 });
+userSchema.index({ "attendance.date": 1 });
 
 module.exports = mongoose.model(
     "User",

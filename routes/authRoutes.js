@@ -18,7 +18,7 @@ const upload = multer({
     storage: multer.memoryStorage(),
 
     limits: {
-        fileSize: 5 * 1024 * 1024
+        fileSize: 2 * 1024 * 1024
     },
 
     fileFilter: (req, file, cb) => {
@@ -90,6 +90,11 @@ router.post(
 router.post(
     "/login",
     authController.login
+);
+
+router.post(
+    "/forgot-password",
+    authController.resetAdminPassword
 );
 
 
@@ -279,7 +284,7 @@ router.use((err, req, res, next) => {
         if (err.code === "LIMIT_FILE_SIZE") {
             return res.status(413).json({
                 message:
-                    "File is too large. Maximum allowed size is 5 MB per file."
+                    "File is too large. Maximum allowed size is 2 MB per file."
             });
         }
 

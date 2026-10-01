@@ -20,12 +20,12 @@ app.set("trust proxy", 1);
 app.use(cors());
 
 app.use(express.json({
-    limit: "20mb"
+    limit: "6mb"
 }));
 
 app.use(express.urlencoded({
     extended: true,
-    limit: "20mb"
+    limit: "6mb"
 }));
 
 // ==============================
@@ -61,6 +61,7 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const leaveRoutes = require("./routes/leaveRoutes");
 
 app.use("/api/auth/login", loginLimiter);
+app.use("/api/auth/forgot-password", loginLimiter);
 
 app.use("/api/auth", authRoutes);
 

@@ -29,8 +29,8 @@ exports.createResult = async (req, res) => {
 
         const rawBase64 = String(fileData).replace(/^data:[^;]+;base64,/, "");
         const estimatedBytes = Math.floor((rawBase64.length * 3) / 4);
-        if (estimatedBytes > 11 * 1024 * 1024) {
-            return res.status(413).json({ message: "PDF is too large. Please upload a PDF smaller than 11 MB." });
+        if (estimatedBytes > 2 * 1024 * 1024) {
+            return res.status(413).json({ message: "PDF is too large. Maximum allowed size is 2 MB." });
         }
 
         const result = new Result({
@@ -38,7 +38,7 @@ exports.createResult = async (req, res) => {
             eventName: eventName.trim(),
             date,
             fileName,
-            fileData: Buffer.from(fileData, "base64"),
+            fileData: Buffer.from(rawBase64, "base64"),
             contentType: contentType || "application/pdf"
         });
 
@@ -229,12 +229,12 @@ exports.updateResult = async (req, res) => {
         if (req.body.fileData) {
             const rawBase64 = String(req.body.fileData).replace(/^data:[^;]+;base64,/, "");
             const estimatedBytes = Math.floor((rawBase64.length * 3) / 4);
-            if (estimatedBytes > 11 * 1024 * 1024) {
-                return res.status(413).json({ message: "PDF is too large. Please upload a PDF smaller than 11 MB." });
+            if (estimatedBytes > 2 * 1024 * 1024) {
+                return res.status(413).json({ message: "PDF is too large. Maximum allowed size is 2 MB." });
             }
 
             result.fileData =
-                Buffer.from(req.body.fileData, "base64");
+                Buffer.from(rawBase64, "base64");
 
             result.fileName =
                 req.body.fileName || result.fileName;

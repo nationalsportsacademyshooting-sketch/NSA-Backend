@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
 const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
-const DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
+const DOCUMENT_MAX_BYTES = 2 * 1024 * 1024;
 
 
 // =========================================================
@@ -378,7 +378,7 @@ exports.register = async (req, res) => {
             ) {
                 return res.status(413).json({
                     message:
-                        `${file.originalname} is larger than 5 MB.`
+                        `${file.originalname} is larger than 2 MB.`
                 });
             }
         }
@@ -1683,6 +1683,8 @@ exports.changeAdmin = async (req, res) => {
     try {
 
         const {
+            currentUsername,
+            currentPassword,
             newUsername,
             newPassword
         } = req.body;
@@ -1702,6 +1704,28 @@ exports.changeAdmin = async (req, res) => {
                 message:
                     "Admin not found"
             });
+        }
+
+        if (
+            currentUsername &&
+            String(currentUsername).trim().toLowerCase() !== user.username
+        ) {
+            return res.status(400).json({
+                message: "Current username is incorrect."
+            });
+        }
+
+        if (currentPassword) {
+            const passwordMatches = await bcrypt.compare(
+                String(currentPassword),
+                user.password
+            );
+
+            if (!passwordMatches) {
+                return res.status(401).json({
+                    message: "Current password is incorrect."
+                });
+            }
         }
 
 
@@ -1746,6 +1770,77 @@ exports.changeAdmin = async (req, res) => {
     }
 };
 
+
+// =========================================================
+// FORGOT / RESET ADMIN PASSWORD
+// =========================================================
+
+exports.resetAdminPassword = async (req, res) => {
+    try {
+        const username = String(req.body?.username || "").trim().toLowerCase();
+        const recoveryCode = String(req.body?.recoveryCode || "");
+        const newPassword = String(req.body?.newPassword || "");
+        const confirmPassword = String(req.body?.confirmPassword || "");
+
+        if (!username || !recoveryCode || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                message: "Username, recovery code and new password are required."
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                message: "Password must be at least 8 characters long."
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                message: "Passwords do not match."
+            });
+        }
+
+        const configuredCode = String(process.env.ADMIN_RECOVERY_CODE || "").trim();
+
+        if (
+            !configuredCode ||
+            configuredCode === "CHANGE_THIS_TO_A_PRIVATE_RECOVERY_CODE" ||
+            recoveryCode !== configuredCode
+        ) {
+            return res.status(403).json({
+                message: "Invalid recovery code."
+            });
+        }
+
+        const admin = await User.findOne({
+            username,
+            role: "admin"
+        });
+
+        if (!admin) {
+            return res.status(404).json({
+                message: "Admin account not found."
+            });
+        }
+
+        admin.password = await bcrypt.hash(newPassword, 10);
+        admin.failedAttempts = 0;
+        admin.lockUntil = null;
+        admin.activeSessionId = null;
+        admin.activeSessionExpiresAt = null;
+
+        await admin.save();
+
+        res.json({
+            message: "Admin password reset successfully. Please login again."
+        });
+    } catch (err) {
+        console.error("Reset admin password error:", err);
+        res.status(500).json({
+            message: err.message || "Unable to reset password."
+        });
+    }
+};
 
 // =========================================================
 // GET ALL APPROVED SHOOTERS
