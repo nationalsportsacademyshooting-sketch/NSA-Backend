@@ -53,6 +53,34 @@ function base64ByteSize(value) {
 
 
 // ============================================================
+// HELPER: NORMALIZE ATTENDANCE DATE
+// ============================================================
+
+function normalizeAttendanceDate(value) {
+
+    if (!value) {
+        return "";
+    }
+
+    // Already in YYYY-MM-DD format
+    if (
+        typeof value === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ) {
+        return value;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    return date.toISOString().slice(0, 10);
+}
+
+
+// ============================================================
 // CREATE SHOOTER
 // ============================================================
 
@@ -185,17 +213,6 @@ exports.createShooter = async (req, res) => {
 
 // ============================================================
 // GET ALL APPROVED SHOOTERS
-//
-// IMPORTANT:
-// Do NOT load:
-// - profilePhoto
-// - documents
-// - attendance
-// - dailyScores
-// - password
-//
-// These can be very large and are not required by the
-// shooter list.
 // ============================================================
 
 exports.getShooters = async (req, res) => {
@@ -279,10 +296,6 @@ exports.getShooter = async (req, res) => {
             shooter.toObject();
 
 
-        // ====================================================
-        // CURRENT PERSONAL DETAILS
-        // ====================================================
-
         result.firstName =
             shooter.firstName || "";
 
@@ -299,19 +312,11 @@ exports.getShooter = async (req, res) => {
             shooter.gender || "";
 
 
-        // ====================================================
-        // PHONE
-        // ====================================================
-
         result.phone =
             shooter.phone ||
             shooter.mobile ||
             "";
 
-
-        // ====================================================
-        // DATE OF BIRTH
-        // ====================================================
 
         result.dateOfBirth =
             shooter.dateOfBirth ||
@@ -319,41 +324,21 @@ exports.getShooter = async (req, res) => {
             "";
 
 
-        // ====================================================
-        // EMAIL
-        // ====================================================
-
         result.email =
             shooter.email || "";
 
-
-        // ====================================================
-        // CLASS
-        // ====================================================
 
         result.class =
             shooter.className || "";
 
 
-        // ====================================================
-        // SECTION
-        // ====================================================
-
         result.section =
             shooter.section || "";
 
 
-        // ====================================================
-        // ADDRESS
-        // ====================================================
-
         result.address =
             shooter.address || "";
 
-
-        // ====================================================
-        // SHOOTING DETAILS
-        // ====================================================
 
         result.shooterId =
             shooter.shooterId || "";
@@ -365,17 +350,9 @@ exports.getShooter = async (req, res) => {
             shooter.category || "";
 
 
-        // ====================================================
-        // ACCOUNT
-        // ====================================================
-
         result.username =
             shooter.username || "";
 
-
-        // ====================================================
-        // DOCUMENT INFORMATION
-        // ====================================================
 
         if (result.documents) {
 
@@ -906,10 +883,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // PERSONAL DETAILS
-        // ====================================================
-
         if (
             req.body.firstName !== undefined
         ) {
@@ -965,10 +938,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // PHONE
-        // ====================================================
-
         if (
             req.body.phone !== undefined
         ) {
@@ -985,10 +954,6 @@ exports.updateShooter = async (req, res) => {
                 phone;
         }
 
-
-        // ====================================================
-        // DATE OF BIRTH
-        // ====================================================
 
         if (
             req.body.dateOfBirth !== undefined
@@ -1007,10 +972,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // EMAIL
-        // ====================================================
-
         if (
             req.body.email !== undefined
         ) {
@@ -1024,10 +985,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // CLASS
-        // ====================================================
-
         if (
             req.body.class !== undefined
         ) {
@@ -1038,10 +995,6 @@ exports.updateShooter = async (req, res) => {
                 ).trim();
         }
 
-
-        // ====================================================
-        // SECTION
-        // ====================================================
 
         if (
             req.body.section !== undefined
@@ -1054,10 +1007,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // ADDRESS
-        // ====================================================
-
         if (
             req.body.address !== undefined
         ) {
@@ -1068,10 +1017,6 @@ exports.updateShooter = async (req, res) => {
                 ).trim();
         }
 
-
-        // ====================================================
-        // SHOOTING DETAILS
-        // ====================================================
 
         if (
             req.body.event !== undefined
@@ -1095,10 +1040,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // ASSIGNED TIME SLOT
-        // ====================================================
-
         if (
             req.body.assignedTimeSlot !== undefined
         ) {
@@ -1110,10 +1051,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // KEEP FULL NAME UPDATED
-        // ====================================================
-
         const firstName =
             shooter.firstName || "";
 
@@ -1123,10 +1060,6 @@ exports.updateShooter = async (req, res) => {
         shooter.name =
             `${firstName} ${lastName}`.trim();
 
-
-        // ====================================================
-        // USERNAME
-        // ====================================================
 
         if (
             req.body.username !== undefined
@@ -1176,10 +1109,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // PROFILE PHOTO
-        // ====================================================
-
         if (
             req.body.profilePhoto
         ) {
@@ -1204,11 +1133,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // PASSWORD
-        // Blank = keep existing password
-        // ====================================================
-
         if (
             req.body.password &&
             String(
@@ -1226,10 +1150,6 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // INITIALIZE DOCUMENTS
-        // ====================================================
-
         if (
             !shooter.documents
         ) {
@@ -1237,10 +1157,6 @@ exports.updateShooter = async (req, res) => {
             shooter.documents = {};
         }
 
-
-        // ====================================================
-        // PASSPORT PHOTO
-        // ====================================================
 
         if (
             req.body.passportPhoto &&
@@ -1283,10 +1199,6 @@ exports.updateShooter = async (req, res) => {
             };
         }
 
-
-        // ====================================================
-        // OTHER DOCUMENTS
-        // ====================================================
 
         const documentFields = [
 
@@ -1357,16 +1269,8 @@ exports.updateShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // SAVE
-        // ====================================================
-
         await shooter.save();
 
-
-        // ====================================================
-        // RESPONSE
-        // ====================================================
 
         res.json({
 
@@ -1552,6 +1456,23 @@ exports.saveAttendance = async (req, res) => {
         }
 
 
+        // ------------------------------------------------------
+        // Normalize selected date to YYYY-MM-DD
+        // ------------------------------------------------------
+
+        const targetDate =
+            normalizeAttendanceDate(date);
+
+
+        if (!targetDate) {
+
+            return res.status(400).json({
+                message:
+                    "Invalid attendance date"
+            });
+        }
+
+
         const validStatuses =
             new Set([
                 "present",
@@ -1628,37 +1549,93 @@ exports.saveAttendance = async (req, res) => {
         shooters.forEach(
             shooter => {
 
-                const existingRecord =
-                    shooter.attendance.find(
-                        record =>
-                            record.date ===
-                            date
+                const newStatus =
+                    statusByShooterId.get(
+                        String(
+                            shooter._id
+                        )
                     );
 
 
-                if (existingRecord) {
+                let matchingRecordFound =
+                    false;
 
-                    existingRecord.status =
-                        statusByShooterId.get(
-                            String(
-                                shooter._id
-                            )
-                        );
 
-                } else {
+                // ------------------------------------------------
+                // Find the selected date.
+                //
+                // If a record already exists:
+                // UPDATE it.
+                //
+                // If duplicate records already exist:
+                // REMOVE the extra records.
+                // ------------------------------------------------
+
+                shooter.attendance =
+                    (shooter.attendance || [])
+                        .filter(record => {
+
+                            const recordDate =
+                                normalizeAttendanceDate(
+                                    record.date
+                                );
+
+
+                            // Different date -> keep it
+                            if (
+                                recordDate !==
+                                targetDate
+                            ) {
+
+                                return true;
+                            }
+
+
+                            // First matching record -> update it
+                            if (
+                                !matchingRecordFound
+                            ) {
+
+                                matchingRecordFound =
+                                    true;
+
+
+                                record.date =
+                                    targetDate;
+
+                                record.status =
+                                    newStatus;
+
+
+                                return true;
+                            }
+
+
+                            // Any additional record for the
+                            // same shooter/date is a duplicate.
+                            return false;
+
+                        });
+
+
+                // ------------------------------------------------
+                // No existing record -> create a new record
+                // ------------------------------------------------
+
+                if (
+                    !matchingRecordFound
+                ) {
 
                     shooter.attendance.push({
 
-                        date,
+                        date:
+                            targetDate,
 
                         status:
-                            statusByShooterId.get(
-                                String(
-                                    shooter._id
-                                )
-                            )
+                            newStatus
 
                     });
+
                 }
 
             }
@@ -1722,6 +1699,19 @@ exports.getAttendance = async (req, res) => {
         }
 
 
+        const targetDate =
+            normalizeAttendanceDate(date);
+
+
+        if (!targetDate) {
+
+            return res.status(400).json({
+                message:
+                    "Invalid attendance date"
+            });
+        }
+
+
         const shooters =
             await User.find(
                 {
@@ -1742,10 +1732,15 @@ exports.getAttendance = async (req, res) => {
                 shooter => {
 
                     const entry =
-                        (shooter.attendance || []).find(
+                        (
+                            shooter.attendance ||
+                            []
+                        ).find(
                             record =>
-                                record.date ===
-                                date
+                                normalizeAttendanceDate(
+                                    record.date
+                                ) ===
+                                targetDate
                         );
 
 
