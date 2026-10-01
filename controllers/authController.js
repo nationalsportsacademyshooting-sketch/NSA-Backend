@@ -1904,13 +1904,16 @@ exports.getShooters = async (req, res) => {
                         "approved"
                 },
 
-                "-password -documents.data"
+                "-password " +
+                "-documents.passportPhoto.data " +
+                "-documents.identityProof.data " +
+                "-documents.birthCertificate.data " +
+                "-documents.affidavit.data " +
+                "-documents.schoolShooterId.data"
             )
-                .sort({
-                    name:
-                        1
-                })                .allowDiskUse(true)
-;
+                .sort({ name: 1 })
+                .allowDiskUse(true)
+                .lean();
 
 
         res.json(
@@ -1951,13 +1954,16 @@ exports.getPendingShooters = async (req, res) => {
                         "pending"
                 },
 
-                "-password -documents.data"
+                "-password " +
+                "-documents.passportPhoto.data " +
+                "-documents.identityProof.data " +
+                "-documents.birthCertificate.data " +
+                "-documents.affidavit.data " +
+                "-documents.schoolShooterId.data"
             )
-                .sort({
-                    createdAt:
-                        -1
-                })                .allowDiskUse(true)
-;
+                .sort({ createdAt: -1 })
+                .allowDiskUse(true)
+                .lean();
 
 
         res.json(
