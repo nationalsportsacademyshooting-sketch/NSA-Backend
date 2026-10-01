@@ -11,13 +11,61 @@ const rateLimit = require("express-rate-limit");
 dotenv.config();
 
 const app = express();
+
 app.set("trust proxy", 1);
+
+// ==============================
+// CORS
+// ==============================
+
+const allowedOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500"
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+
+        // Allow requests without an Origin header
+        // such as server-to-server requests and Postman.
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("CORS: Origin not allowed"));
+    },
+
+    credentials: true,
+
+    methods: [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+    ],
+
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization"
+    ],
+
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
+// Handle browser preflight requests
+app.options("*", cors(corsOptions));
 
 // ==============================
 // MIDDLEWARE
 // ==============================
-
-app.use(cors());
 
 app.use(express.json({
     limit: "6mb"
@@ -61,6 +109,7 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const leaveRoutes = require("./routes/leaveRoutes");
 
 app.use("/api/auth/login", loginLimiter);
+
 app.use("/api/auth/forgot-password", loginLimiter);
 
 app.use("/api/auth", authRoutes);
@@ -72,6 +121,7 @@ app.use("/api/news", newsRoutes);
 app.use("/api/results", resultRoutes);
 
 app.use("/api/bookings", bookingRoutes);
+
 app.use("/api/leaves", leaveRoutes);
 
 // ==============================
@@ -80,18 +130,18 @@ app.use("/api/leaves", leaveRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
 
-.then(() => {
+    .then(() => {
 
-    console.log("✅ MongoDB Connected Successfully");
+        console.log("✅ MongoDB Connected Successfully");
 
-})
+    })
 
-.catch((err) => {
+    .catch((err) => {
 
-    console.log("❌ MongoDB Error:");
-    console.log(err);
+        console.log("❌ MongoDB Error:");
+        console.log(err);
 
-});
+    });
 
 // ==============================
 // HOME
