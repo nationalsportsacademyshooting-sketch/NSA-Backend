@@ -19,23 +19,36 @@ function convertBase64ToBuffer(base64) {
         typeof base64 === "string" &&
         base64.includes(",")
     ) {
-        base64 =
-            base64.split(",")[1];
+        base64 = base64.split(",")[1];
     }
 
-    return Buffer.from(
-        base64,
-        "base64"
-    );
+    return Buffer.from(base64, "base64");
 }
 
+
 function base64ByteSize(value) {
+
     if (!value) return 0;
+
     let raw = String(value);
-    if (raw.includes(",")) raw = raw.split(",")[1];
+
+    if (raw.includes(",")) {
+        raw = raw.split(",")[1];
+    }
+
     raw = raw.replace(/\s/g, "");
-    const padding = raw.endsWith("==") ? 2 : raw.endsWith("=") ? 1 : 0;
-    return Math.max(0, Math.floor((raw.length * 3) / 4) - padding);
+
+    const padding =
+        raw.endsWith("==")
+            ? 2
+            : raw.endsWith("=")
+                ? 1
+                : 0;
+
+    return Math.max(
+        0,
+        Math.floor((raw.length * 3) / 4) - padding
+    );
 }
 
 
@@ -44,6 +57,7 @@ function base64ByteSize(value) {
 // ============================================================
 
 exports.createShooter = async (req, res) => {
+
     try {
 
         if (req.user.role !== "admin") {
@@ -72,20 +86,24 @@ exports.createShooter = async (req, res) => {
         const existingUser =
             await User.findOne({
                 username
-            });
+            }).lean();
 
 
         if (existingUser) {
             return res.status(400).json({
-                message:
-                    "Username already exists"
+                message: "Username already exists"
             });
         }
 
 
-        if (profilePhoto && base64ByteSize(profilePhoto) > MAX_UPLOAD_BYTES) {
+        if (
+            profilePhoto &&
+            base64ByteSize(profilePhoto) > MAX_UPLOAD_BYTES
+        ) {
+
             return res.status(413).json({
-                message: "Profile photo must be 2 MB or smaller."
+                message:
+                    "Profile photo must be 2 MB or smaller."
             });
         }
 
@@ -167,9 +185,21 @@ exports.createShooter = async (req, res) => {
 
 // ============================================================
 // GET ALL APPROVED SHOOTERS
+//
+// IMPORTANT:
+// Do NOT load:
+// - profilePhoto
+// - documents
+// - attendance
+// - dailyScores
+// - password
+//
+// These can be very large and are not required by the
+// shooter list.
 // ============================================================
 
 exports.getShooters = async (req, res) => {
+
     try {
 
         const shooters =
@@ -178,11 +208,18 @@ exports.getShooters = async (req, res) => {
                     role: "shooter",
                     status: "approved"
                 },
-                "-password -documents.data"
+                {
+                    password: 0,
+                    profilePhoto: 0,
+                    documents: 0,
+                    attendance: 0,
+                    dailyScores: 0
+                }
             )
             .sort({
                 name: 1
-            });
+            })
+            .lean();
 
 
         res.json(
@@ -210,6 +247,7 @@ exports.getShooters = async (req, res) => {
 // ============================================================
 
 exports.getShooter = async (req, res) => {
+
     try {
 
         const shooter =
@@ -338,10 +376,6 @@ exports.getShooter = async (req, res) => {
         // ====================================================
         // DOCUMENT INFORMATION
         // ====================================================
-        // Do not send document binary data.
-        // Actual documents are loaded using the
-        // document endpoint.
-        // ====================================================
 
         if (result.documents) {
 
@@ -387,10 +421,6 @@ exports.getShooter = async (req, res) => {
         }
 
 
-        // ====================================================
-        // SEND RESULT
-        // ====================================================
-
         res.json(
             result
         );
@@ -416,6 +446,7 @@ exports.getShooter = async (req, res) => {
 // ============================================================
 
 exports.getPendingShooters = async (req, res) => {
+
     try {
 
         const shooters =
@@ -424,11 +455,18 @@ exports.getPendingShooters = async (req, res) => {
                     role: "shooter",
                     status: "pending"
                 },
-                "-password -documents.data"
+                {
+                    password: 0,
+                    profilePhoto: 0,
+                    "documents.data": 0,
+                    attendance: 0,
+                    dailyScores: 0
+                }
             )
             .sort({
                 createdAt: -1
-            });
+            })
+            .lean();
 
 
         res.json(
@@ -456,6 +494,7 @@ exports.getPendingShooters = async (req, res) => {
 // ============================================================
 
 exports.getShooterDetails = async (req, res) => {
+
     try {
 
         const shooter =
@@ -467,8 +506,11 @@ exports.getShooterDetails = async (req, res) => {
                     role:
                         "shooter"
                 },
-                "-password"
-            );
+                {
+                    password: 0,
+                    "documents.data": 0
+                }
+            ).lean();
 
 
         if (!shooter) {
@@ -481,7 +523,7 @@ exports.getShooterDetails = async (req, res) => {
 
 
         const result =
-            shooter.toObject();
+            shooter;
 
 
         if (result.documents) {
@@ -490,19 +532,15 @@ exports.getShooterDetails = async (req, res) => {
                 result.documents
             ).forEach(key => {
 
-                if (
-                    result.documents[key]
-                ) {
+                const doc =
+                    result.documents[key];
 
-                    const doc =
-                        result.documents[key];
 
+                if (doc) {
 
                     doc.available =
-                        !!doc.data ||
                         !!doc.mimeType ||
                         !!doc.originalName;
-
 
                     delete doc.data;
                 }
@@ -536,6 +574,7 @@ exports.getShooterDetails = async (req, res) => {
 // ============================================================
 
 exports.approveShooter = async (req, res) => {
+
     try {
 
         const {
@@ -580,7 +619,6 @@ exports.approveShooter = async (req, res) => {
 
         shooter.assignedTimeSlot =
             assignedTimeSlot.trim();
-
 
         shooter.status =
             "approved";
@@ -635,6 +673,7 @@ exports.approveShooter = async (req, res) => {
 // ============================================================
 
 exports.rejectShooter = async (req, res) => {
+
     try {
 
         const {
@@ -732,6 +771,7 @@ exports.rejectShooter = async (req, res) => {
 // ============================================================
 
 exports.getShooterDocument = async (req, res) => {
+
     try {
 
         const allowedDocuments = [
@@ -841,6 +881,7 @@ exports.getShooterDocument = async (req, res) => {
 // ============================================================
 
 exports.updateShooter = async (req, res) => {
+
     try {
 
         const shooter =
@@ -937,10 +978,8 @@ exports.updateShooter = async (req, res) => {
                     req.body.phone
                 ).trim();
 
-
             shooter.phone =
                 phone;
-
 
             shooter.mobile =
                 phone;
@@ -960,10 +999,8 @@ exports.updateShooter = async (req, res) => {
                     req.body.dateOfBirth
                 ).trim();
 
-
             shooter.dateOfBirth =
                 dateOfBirth;
-
 
             shooter.dob =
                 dateOfBirth;
@@ -995,14 +1032,10 @@ exports.updateShooter = async (req, res) => {
             req.body.class !== undefined
         ) {
 
-            const classValue =
+            shooter.className =
                 String(
                     req.body.class
                 ).trim();
-
-
-            shooter.className =
-                classValue;
         }
 
 
@@ -1061,19 +1094,21 @@ exports.updateShooter = async (req, res) => {
                 ).trim();
         }
 
+
         // ====================================================
-// ASSIGNED TIME SLOT
-// ====================================================
+        // ASSIGNED TIME SLOT
+        // ====================================================
 
-if (
-    req.body.assignedTimeSlot !== undefined
-) {
+        if (
+            req.body.assignedTimeSlot !== undefined
+        ) {
 
-    shooter.assignedTimeSlot =
-        String(
-            req.body.assignedTimeSlot
-        ).trim();
-}
+            shooter.assignedTimeSlot =
+                String(
+                    req.body.assignedTimeSlot
+                ).trim();
+        }
+
 
         // ====================================================
         // KEEP FULL NAME UPDATED
@@ -1085,10 +1120,8 @@ if (
         const lastName =
             shooter.lastName || "";
 
-
         shooter.name =
-            `${firstName} ${lastName}`
-                .trim();
+            `${firstName} ${lastName}`.trim();
 
 
         // ====================================================
@@ -1126,7 +1159,7 @@ if (
                             shooter._id
                     }
 
-                });
+                }).lean();
 
 
             if (existingUser) {
@@ -1146,13 +1179,28 @@ if (
         // ====================================================
         // PROFILE PHOTO
         // ====================================================
-        if (req.body.profilePhoto) {
-            if (base64ByteSize(req.body.profilePhoto) > MAX_UPLOAD_BYTES) {
+
+        if (
+            req.body.profilePhoto
+        ) {
+
+            if (
+                base64ByteSize(
+                    req.body.profilePhoto
+                ) > MAX_UPLOAD_BYTES
+            ) {
+
                 return res.status(413).json({
-                    message: "Profile photo must be 2 MB or smaller."
+                    message:
+                        "Profile photo must be 2 MB or smaller."
                 });
             }
-            shooter.profilePhoto = String(req.body.profilePhoto);
+
+
+            shooter.profilePhoto =
+                String(
+                    req.body.profilePhoto
+                );
         }
 
 
@@ -1198,11 +1246,19 @@ if (
             req.body.passportPhoto &&
             req.body.passportPhoto.data
         ) {
-            if (base64ByteSize(req.body.passportPhoto.data) > MAX_UPLOAD_BYTES) {
+
+            if (
+                base64ByteSize(
+                    req.body.passportPhoto.data
+                ) > MAX_UPLOAD_BYTES
+            ) {
+
                 return res.status(413).json({
-                    message: "Passport photo must be 2 MB or smaller."
+                    message:
+                        "Passport photo must be 2 MB or smaller."
                 });
             }
+
 
             shooter.documents.passportPhoto = {
 
@@ -1260,6 +1316,19 @@ if (
                 document &&
                 document.data
             ) {
+
+                if (
+                    base64ByteSize(
+                        document.data
+                    ) > MAX_UPLOAD_BYTES
+                ) {
+
+                    return res.status(413).json({
+                        message:
+                            `${documentName} must be 2 MB or smaller.`
+                    });
+                }
+
 
                 shooter.documents[
                     documentName
@@ -1351,9 +1420,8 @@ if (
                 category:
                     shooter.category,
 
-                    assignedTimeSlot:
-    shooter.assignedTimeSlot,
-
+                assignedTimeSlot:
+                    shooter.assignedTimeSlot,
 
                 username:
                     shooter.username
@@ -1383,10 +1451,8 @@ if (
 
 
         res.status(500).json({
-
             message:
                 err.message
-
         });
     }
 };
@@ -1397,6 +1463,7 @@ if (
 // ============================================================
 
 exports.deleteShooter = async (req, res) => {
+
     try {
 
         const shooter =
@@ -1462,6 +1529,7 @@ exports.deleteShooter = async (req, res) => {
 // ============================================================
 
 exports.saveAttendance = async (req, res) => {
+
     try {
 
         const {
@@ -1633,6 +1701,7 @@ exports.saveAttendance = async (req, res) => {
 // ============================================================
 
 exports.getAttendance = async (req, res) => {
+
     try {
 
         const {
@@ -1665,7 +1734,7 @@ exports.getAttendance = async (req, res) => {
                     className
                 },
                 "attendance"
-            );
+            ).lean();
 
 
         const records =
@@ -1673,7 +1742,7 @@ exports.getAttendance = async (req, res) => {
                 shooter => {
 
                     const entry =
-                        shooter.attendance.find(
+                        (shooter.attendance || []).find(
                             record =>
                                 record.date ===
                                 date
@@ -1723,6 +1792,7 @@ exports.getAttendance = async (req, res) => {
 // ============================================================
 
 exports.saveDailyScore = async (req, res) => {
+
     try {
 
         const {
@@ -1795,9 +1865,7 @@ exports.saveDailyScore = async (req, res) => {
 
 
         const cleanSeries =
-            series.map(
-                Number
-            );
+            series.map(Number);
 
 
         const total =
@@ -1883,6 +1951,7 @@ exports.saveDailyScore = async (req, res) => {
 // ============================================================
 
 exports.getDailyScore = async (req, res) => {
+
     try {
 
         const shooter =
@@ -1898,7 +1967,7 @@ exports.getDailyScore = async (req, res) => {
                         "approved"
                 },
                 "dailyScores"
-            );
+            ).lean();
 
 
         if (!shooter) {
