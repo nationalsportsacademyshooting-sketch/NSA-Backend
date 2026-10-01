@@ -14,20 +14,23 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// ==============================
+// ======================================================
 // CORS
-// ==============================
+// ======================================================
 
 const allowedOrigins = [
     "http://127.0.0.1:5500",
     "http://localhost:5500"
+
+    // Add your deployed frontend URL here when needed:
+    // "https://your-frontend-domain.com"
 ];
 
 const corsOptions = {
     origin: function (origin, callback) {
 
-        // Allow requests without an Origin header
-        // such as server-to-server requests and Postman.
+        // Allow requests without an Origin header.
+        // This allows server-to-server requests, Postman, etc.
         if (!origin) {
             return callback(null, true);
         }
@@ -36,7 +39,11 @@ const corsOptions = {
             return callback(null, true);
         }
 
-        return callback(new Error("CORS: Origin not allowed"));
+        console.log("CORS blocked origin:", origin);
+
+        return callback(
+            new Error("CORS: Origin not allowed")
+        );
     },
 
     credentials: true,
@@ -58,14 +65,15 @@ const corsOptions = {
     optionsSuccessStatus: 204
 };
 
+// Apply CORS before all API routes.
 app.use(cors(corsOptions));
 
-// Handle browser preflight requests
+// Explicitly handle browser preflight requests.
 app.options("*", cors(corsOptions));
 
-// ==============================
-// MIDDLEWARE
-// ==============================
+// ======================================================
+// BODY PARSING
+// ======================================================
 
 app.use(express.json({
     limit: "6mb"
@@ -76,9 +84,9 @@ app.use(express.urlencoded({
     limit: "6mb"
 }));
 
-// ==============================
+// ======================================================
 // LOGIN RATE LIMIT
-// ==============================
+// ======================================================
 
 const loginLimiter = rateLimit({
 
@@ -97,9 +105,9 @@ const loginLimiter = rateLimit({
 
 });
 
-// ==============================
+// ======================================================
 // ROUTES
-// ==============================
+// ======================================================
 
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -108,54 +116,135 @@ const resultRoutes = require("./routes/resultRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const leaveRoutes = require("./routes/leaveRoutes");
 
-app.use("/api/auth/login", loginLimiter);
+// Login rate limiter
+app.use(
+    "/api/auth/login",
+    loginLimiter
+);
 
-app.use("/api/auth/forgot-password", loginLimiter);
+// Forgot-password rate limiter
+app.use(
+    "/api/auth/forgot-password",
+    loginLimiter
+);
 
-app.use("/api/auth", authRoutes);
+// Authentication
+app.use(
+    "/api/auth",
+    authRoutes
+);
 
-app.use("/api/admin", adminRoutes);
+// Admin
+app.use(
+    "/api/admin",
+    adminRoutes
+);
 
-app.use("/api/news", newsRoutes);
+// News
+app.use(
+    "/api/news",
+    newsRoutes
+);
 
-app.use("/api/results", resultRoutes);
+// Results
+app.use(
+    "/api/results",
+    resultRoutes
+);
 
-app.use("/api/bookings", bookingRoutes);
+// Bookings
+app.use(
+    "/api/bookings",
+    bookingRoutes
+);
 
-app.use("/api/leaves", leaveRoutes);
+// Leaves
+app.use(
+    "/api/leaves",
+    leaveRoutes
+);
 
-// ==============================
+// ======================================================
+// HOME
+// ======================================================
+
+app.get("/", (req, res) => {
+
+    res.status(200).send(
+        "Backend Working"
+    );
+
+});
+
+// ======================================================
+// 404 HANDLER
+// ======================================================
+
+app.use((req, res) => {
+
+    res.status(404).json({
+        success: false,
+        message: "API route not found"
+    });
+
+});
+
+// ======================================================
+// ERROR HANDLER
+// ======================================================
+
+app.use((err, req, res, next) => {
+
+    console.error("Server error:", err);
+
+    // CORS error
+    if (
+        err &&
+        typeof err.message === "string" &&
+        err.message.startsWith("CORS:")
+    ) {
+
+        return res.status(403).json({
+            success: false,
+            message: err.message
+        });
+
+    }
+
+    res.status(500).json({
+        success: false,
+        message: "Internal server error"
+    });
+
+});
+
+// ======================================================
 // MONGODB
-// ==============================
+// ======================================================
 
 mongoose.connect(process.env.MONGO_URI)
 
     .then(() => {
 
-        console.log("✅ MongoDB Connected Successfully");
+        console.log(
+            "✅ MongoDB Connected Successfully"
+        );
 
     })
 
     .catch((err) => {
 
-        console.log("❌ MongoDB Error:");
-        console.log(err);
+        console.error(
+            "❌ MongoDB Error:"
+        );
+
+        console.error(err);
 
     });
 
-// ==============================
-// HOME
-// ==============================
-
-app.get("/", (req, res) => {
-
-    res.send("Backend Working");
-
-});
-
-// ==============================
+// ======================================================
 // SERVER
-// ==============================
+// ======================================================
 
 const PORT = process.env.PORT || 5000;
 
