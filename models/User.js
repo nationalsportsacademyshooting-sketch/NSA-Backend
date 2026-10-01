@@ -1,23 +1,31 @@
 const mongoose = require("mongoose");
 
+/* =========================================================
+   DOCUMENT SCHEMA
+   ========================================================= */
+
 const documentSchema = new mongoose.Schema(
     {
         filename: {
             type: String,
             default: ""
         },
+
         originalName: {
             type: String,
             default: ""
         },
+
         mimeType: {
             type: String,
             default: ""
         },
+
         size: {
             type: Number,
             default: 0
         },
+
         data: {
             type: Buffer,
             default: undefined
@@ -26,22 +34,30 @@ const documentSchema = new mongoose.Schema(
     { _id: false }
 );
 
+
+/* =========================================================
+   ATTENDANCE SCHEMA
+   ========================================================= */
+
 const attendanceSchema = new mongoose.Schema(
     {
         date: {
             type: Date,
             required: true
         },
+
         status: {
             type: String,
             enum: ["present", "absent", "leave"],
             required: true
         },
+
         markedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             default: null
         },
+
         remarks: {
             type: String,
             default: ""
@@ -50,24 +66,33 @@ const attendanceSchema = new mongoose.Schema(
     { _id: false }
 );
 
+
+/* =========================================================
+   DAILY SCORE SCHEMA
+   ========================================================= */
+
 const dailyScoreSchema = new mongoose.Schema(
     {
         date: {
             type: Date,
             required: true
         },
+
         score: {
             type: Number,
             default: 0
         },
+
         maximumScore: {
             type: Number,
             default: 0
         },
+
         remarks: {
             type: String,
             default: ""
         },
+
         enteredBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -77,8 +102,17 @@ const dailyScoreSchema = new mongoose.Schema(
     { _id: false }
 );
 
+
+/* =========================================================
+   USER SCHEMA
+   ========================================================= */
+
 const userSchema = new mongoose.Schema(
     {
+        /* -------------------------------------------------
+           LOGIN
+        ------------------------------------------------- */
+
         username: {
             type: String,
             required: true,
@@ -104,6 +138,11 @@ const userSchema = new mongoose.Schema(
             enum: ["pending", "approved", "rejected"],
             default: "pending"
         },
+
+
+        /* -------------------------------------------------
+           PERSONAL DETAILS
+        ------------------------------------------------- */
 
         firstName: {
             type: String,
@@ -182,6 +221,11 @@ const userSchema = new mongoose.Schema(
             default: ""
         },
 
+
+        /* -------------------------------------------------
+           SCHOOL DETAILS
+        ------------------------------------------------- */
+
         className: {
             type: String,
             trim: true,
@@ -194,6 +238,16 @@ const userSchema = new mongoose.Schema(
             default: ""
         },
 
+
+        /* -------------------------------------------------
+           SHOOTER ID
+           
+           Example:
+           NSA1510201001
+           NSA1510201002
+           NSA1510201003
+        ------------------------------------------------- */
+
         shooterId: {
             type: String,
             unique: true,
@@ -201,20 +255,16 @@ const userSchema = new mongoose.Schema(
             trim: true
         },
 
-        /*
-         * Sequence used for IDs such as:
-         * NSA1510201001
-         * NSA1510201002
-         * NSA1510201003
-         *
-         * It is NOT unique globally because the sequence restarts
-         * for a different DOB prefix.
-         */
         shooterIdSequence: {
             type: Number,
             default: null,
             sparse: true
         },
+
+
+        /* -------------------------------------------------
+           SHOOTING DETAILS
+        ------------------------------------------------- */
 
         event: {
             type: String,
@@ -234,10 +284,22 @@ const userSchema = new mongoose.Schema(
             default: ""
         },
 
+
+        /* -------------------------------------------------
+           PROFILE PHOTO
+           
+           Stored as a document object.
+        ------------------------------------------------- */
+
         profilePhoto: {
             type: documentSchema,
             default: null
         },
+
+
+        /* -------------------------------------------------
+           REQUIRED / OPTIONAL DOCUMENTS
+        ------------------------------------------------- */
 
         documents: {
             passportPhoto: {
@@ -266,6 +328,11 @@ const userSchema = new mongoose.Schema(
             }
         },
 
+
+        /* -------------------------------------------------
+           APPROVAL / REJECTION
+        ------------------------------------------------- */
+
         rejectionReason: {
             type: String,
             default: ""
@@ -280,6 +347,11 @@ const userSchema = new mongoose.Schema(
             type: Date,
             default: null
         },
+
+
+        /* -------------------------------------------------
+           LOGIN SECURITY
+        ------------------------------------------------- */
 
         lastLogin: {
             type: Date,
@@ -296,16 +368,27 @@ const userSchema = new mongoose.Schema(
             default: null
         },
 
+
+        /* -------------------------------------------------
+           ATTENDANCE
+        ------------------------------------------------- */
+
         attendance: {
             type: [attendanceSchema],
             default: []
         },
+
+
+        /* -------------------------------------------------
+           DAILY SCORES
+        ------------------------------------------------- */
 
         dailyScores: {
             type: [dailyScoreSchema],
             default: []
         }
     },
+
     {
         timestamps: true
     }
@@ -317,7 +400,7 @@ const userSchema = new mongoose.Schema(
    ========================================================= */
 
 /*
- * Used for admin shooter filtering/search.
+ * Admin shooter filtering/search.
  */
 userSchema.index({
     role: 1,
@@ -325,8 +408,9 @@ userSchema.index({
     name: 1
 });
 
+
 /*
- * Used for recent shooter/admin records.
+ * Recent admin/shooter records.
  */
 userSchema.index({
     role: 1,
@@ -334,16 +418,18 @@ userSchema.index({
     createdAt: -1
 });
 
+
 /*
  * Email lookup.
  *
- * NOT unique because rejected applications must be allowed
- * to exist temporarily and the same email can be registered
- * again after rejection.
+ * NOT unique because:
+ * - rejected applications can be registered again
+ * - approved/pending checking is handled by controller logic
  */
 userSchema.index({
     email: 1
 });
+
 
 /*
  * Attendance date lookup.
@@ -352,8 +438,9 @@ userSchema.index({
     "attendance.date": 1
 });
 
+
 /*
- * Helps with shooter ID sequence-related queries.
+ * Shooter ID sequence-related lookup.
  */
 userSchema.index({
     role: 1,
@@ -362,20 +449,26 @@ userSchema.index({
 });
 
 
-/*
- * IMPORTANT:
- *
- * DO NOT add:
- *
- * userSchema.index({ shooterId: 1 });
- *
- * because shooterId already has:
- *
- * unique: true,
- * sparse: true
- *
- * above, which creates the required index.
- */
+/* =========================================================
+   IMPORTANT
+   =========================================================
 
+   DO NOT add:
+
+   userSchema.index({ shooterId: 1 });
+
+   shooterId already contains:
+
+   unique: true,
+   sparse: true
+
+   so Mongoose already creates the required
+   unique sparse index for shooterId.
+   ========================================================= */
+
+
+/* =========================================================
+   EXPORT
+   ========================================================= */
 
 module.exports = mongoose.model("User", userSchema);
