@@ -16,9 +16,9 @@ const admin = require("../middleware/adminMiddleware");
 const router = express.Router();
 
 
-// ==============================
+// =====================================================
 // MULTER CONFIGURATION
-// ==============================
+// =====================================================
 
 const storage = multer.memoryStorage();
 
@@ -31,7 +31,10 @@ const upload = multer({
 
     fileFilter: (req, file, cb) => {
 
-        // Image
+        // =================================================
+        // IMAGE
+        // =================================================
+
         if (file.fieldname === "image") {
 
             if (file.mimetype.startsWith("image/")) {
@@ -43,7 +46,11 @@ const upload = multer({
             );
         }
 
-        // PDF / document
+
+        // =================================================
+        // DOCUMENT / FILE
+        // =================================================
+
         if (file.fieldname === "file") {
 
             const allowedTypes = [
@@ -66,14 +73,16 @@ const upload = multer({
             );
         }
 
+
+        // Unknown field
         cb(null, false);
     }
 });
 
 
-// ==============================
+// =====================================================
 // ADMIN - CREATE NEWS / EVENT
-// ==============================
+// =====================================================
 
 router.post(
     "/",
@@ -93,40 +102,67 @@ router.post(
 );
 
 
-// ==============================
-// ADMIN + SHOOTER - GET NEWS
-// ==============================
+// =====================================================
+// PUBLIC - GET ALL NEWS / EVENTS
+// =====================================================
+// No auth here.
+// News/Event can be loaded without sending a token.
 
 router.get(
     "/",
-    auth,
     getNewsEvents
 );
 
 
-// ==============================
- // NEWS MEDIA
- // ==============================
-router.get("/:id/image", auth, getNewsImage);
-router.get("/:id/file", auth, getNewsFile);
+// =====================================================
+// PUBLIC - NEWS IMAGE
+// =====================================================
+// No auth here.
+// Browser can directly load the image URL.
 
-// ==============================
+router.get(
+    "/:id/image",
+    getNewsImage
+);
+
+
+// =====================================================
+// PUBLIC - NEWS FILE
+// =====================================================
+// No auth here.
+// Browser can directly open/download the attached file.
+
+router.get(
+    "/:id/file",
+    getNewsFile
+);
+
+
+// =====================================================
 // ADMIN - UPDATE NEWS / EVENT
-// ==============================
+// =====================================================
+
 router.put(
     "/:id",
     auth,
     admin,
     upload.fields([
-        { name: "image", maxCount: 1 },
-        { name: "file", maxCount: 1 }
+        {
+            name: "image",
+            maxCount: 1
+        },
+        {
+            name: "file",
+            maxCount: 1
+        }
     ]),
     updateNewsEvent
 );
 
-// ==============================
+
+// =====================================================
 // ADMIN - DELETE NEWS / EVENT
-// ==============================
+// =====================================================
 
 router.delete(
     "/:id",
@@ -136,13 +172,18 @@ router.delete(
 );
 
 
-// ==============================
-// MULTER ERROR HANDLER
-// ==============================
+// =====================================================
+// MULTER / UPLOAD ERROR HANDLER
+// =====================================================
 
 router.use((error, req, res, next) => {
 
     console.log("News upload error:", error);
+
+
+    // =================================================
+    // MULTER ERROR
+    // =================================================
 
     if (error instanceof multer.MulterError) {
 
@@ -158,12 +199,18 @@ router.use((error, req, res, next) => {
         });
     }
 
+
+    // =================================================
+    // OTHER UPLOAD ERROR
+    // =================================================
+
     if (error) {
 
         return res.status(400).json({
             message: error.message
         });
     }
+
 
     next();
 });
