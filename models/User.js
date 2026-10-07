@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 /* =========================================================
    DOCUMENT SCHEMA
-   ========================================================= */
+========================================================= */
 
 const documentSchema = new mongoose.Schema(
     {
@@ -37,7 +37,7 @@ const documentSchema = new mongoose.Schema(
 
 /* =========================================================
    ATTENDANCE SCHEMA
-   ========================================================= */
+========================================================= */
 
 const attendanceSchema = new mongoose.Schema(
     {
@@ -69,34 +69,34 @@ const attendanceSchema = new mongoose.Schema(
 
 /* =========================================================
    DAILY SCORE SCHEMA
-   ========================================================= */
+=========================================================
+
+   IMPORTANT:
+   The admin Daily Score controller saves:
+
+       date
+       series
+       total
+
+   Therefore the schema must contain those same fields.
+
+========================================================= */
 
 const dailyScoreSchema = new mongoose.Schema(
     {
         date: {
-            type: Date,
+            type: String,
             required: true
         },
 
-        score: {
+        series: {
+            type: [Number],
+            default: []
+        },
+
+        total: {
             type: Number,
             default: 0
-        },
-
-        maximumScore: {
-            type: Number,
-            default: 0
-        },
-
-        remarks: {
-            type: String,
-            default: ""
-        },
-
-        enteredBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            default: null
         }
     },
     { _id: false }
@@ -105,7 +105,7 @@ const dailyScoreSchema = new mongoose.Schema(
 
 /* =========================================================
    USER SCHEMA
-   ========================================================= */
+========================================================= */
 
 const userSchema = new mongoose.Schema(
     {
@@ -284,12 +284,12 @@ const userSchema = new mongoose.Schema(
            PROFILE PHOTO
         =================================================
 
-        IMPORTANT:
-        This is kept as a String because older records may
-        already contain a string/base64 value.
+        Kept as String because older records may already
+        contain a string/base64 value.
 
-        The registration passport photo is stored separately
+        Registration passport photo is stored separately
         inside documents.passportPhoto.
+
         ================================================= */
 
         profilePhoto: {
@@ -397,6 +397,24 @@ const userSchema = new mongoose.Schema(
 
         /* =================================================
            DAILY SCORES
+        =================================================
+
+        Example stored data:
+
+        {
+            date: "2026-10-07",
+            series: [95, 96, 94, 97],
+            total: 382
+        }
+
+        ISSF:
+
+        {
+            date: "2026-10-07",
+            series: [95, 96, 94, 97, 93, 98],
+            total: 573
+        }
+
         ================================================= */
 
         dailyScores: {
@@ -412,7 +430,7 @@ const userSchema = new mongoose.Schema(
 
 /* =========================================================
    INDEXES
-   ========================================================= */
+========================================================= */
 
 userSchema.index({
     role: 1,
@@ -443,6 +461,6 @@ userSchema.index({
 
 /* =========================================================
    EXPORT
-   ========================================================= */
+========================================================= */
 
 module.exports = mongoose.model("User", userSchema);
